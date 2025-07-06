@@ -181,7 +181,7 @@ build-container:
     - |
       # Test registry connectivity with certificate
       echo "Testing registry with CA certificate..."
-      curl --cacert /etc/gitlab-runner/certs/ca.crt -I https://{GITLAB_HOST_FQDN}:5050/v2/ || echo "Curl test failed"
+      wget --ca-certificate=/etc/gitlab-runner/certs/ca.crt --spider https://${GITLAB_HOST_FQDN}:5050/v2/ || echo "Wget test failed"
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
   script:
     - echo "Building Discord bot container image..."
