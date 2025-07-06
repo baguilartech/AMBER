@@ -27,6 +27,12 @@ variables:
   npm_config_cache: "$CI_PROJECT_DIR/.npm"
   SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"  # Defines the location of the analysis task cache
   GIT_DEPTH: "0"  # Tells git to fetch all the branches of the project, required by the analysis task
+  # Docker TLS configuration for all jobs that need Docker
+  DOCKER_TLS_CERTDIR: "/certs"
+  DOCKER_HOST: tcp://docker:2376
+  DOCKER_TLS_VERIFY: 1
+  DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+  DOCKER_DRIVER: overlay2
 
 # Cache template
 .cache_template: &cache_template
@@ -49,47 +55,6 @@ variables:
       - .npm/
     policy: pull-push
 
-# SonarQube Analysis
-sonar_scan:
-  stage: test
-  image: sonarsource/sonar-scanner-cli:11
-  needs:
-    - job: build
-      artifacts: true
-    - job: lint  # Wait for linting to complete
-    - job: test
-      artifacts: true
-  dependencies:
-    - build
-    - test
-  cache:
-    policy: pull-push
-    key: "sonar-cache-$CI_COMMIT_REF_SLUG"
-    paths:
-      - "${SONAR_USER_HOME}/cache"
-      - sonar-scanner/
-  before_script:
-    - |
-      # Check if SONAR_HOST_URL is set and valid
-      if [ -z "$SONAR_HOST_URL" ]; then
-        echo "SONAR_HOST_URL is not set. Skipping SonarQube analysis."
-        exit 0
-      fi
-      # Add scheme if missing
-      if [[ ! "$SONAR_HOST_URL" =~ ^https?:// ]]; then
-        echo "Adding http:// scheme to SONAR_HOST_URL"
-        export SONAR_HOST_URL="http://${SONAR_HOST_URL}"
-      fi
-      echo "SonarQube URL: $SONAR_HOST_URL"
-  script: 
-    - sonar-scanner -Dsonar.host.url="${SONAR_HOST_URL}"
-  allow_failure: true
-  rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-    - if: $CI_COMMIT_BRANCH == 'master'
-    - if: $CI_COMMIT_BRANCH == 'main'
-    - if: $CI_COMMIT_BRANCH == 'develop'
-
 # Build stage
 build:
   stage: build
@@ -111,41 +76,6 @@ build:
     - if: $CI_COMMIT_BRANCH == 'main'
     - if: $CI_COMMIT_BRANCH == 'develop'
 
-# Test stage
-test:
-  stage: test
-  image: node:20
-  services: []  # Override Auto-DevOps services
-  needs:
-    - job: build
-      artifacts: true
-    - job: lint  # Wait for linting to pass before running tests
-  dependencies:
-    - build
-  before_script:
-    - ls -la  # Debug: check if artifacts are present
-    - ls -la node_modules/ || echo "node_modules not found"
-    - which jest || echo "jest not found in PATH"
-    - npm list jest || echo "jest not in npm list"
-  script:
-    - npm run test:ci
-  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
-  artifacts:
-    when: always
-    reports:
-      junit: junit.xml
-      coverage_report:
-        coverage_format: cobertura
-        path: coverage/cobertura-coverage.xml
-    paths:
-      - coverage/
-    expire_in: 1 week
-  rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-    - if: $CI_COMMIT_BRANCH == 'master'
-    - if: $CI_COMMIT_BRANCH == 'main'
-    - if: $CI_COMMIT_BRANCH == 'develop'
-
 # Lint job
 lint:
   stage: lint
@@ -160,7 +90,17 @@ lint:
     - ls -la node_modules/.bin/ || echo "node_modules/.bin not found"
     - npm list @typescript-eslint/eslint-plugin || echo "TypeScript ESLint plugin not found"
     - npm list @typescript-eslint/parser || echo "TypeScript ESLint parser not found"
+    - npm list eslint || echo "ESLint not found"
+    - echo "ESLint version $(npx eslint --version)"
+    - echo "TypeScript ESLint plugin version $(npm list @typescript-eslint/eslint-plugin)"
+    - echo "TypeScript ESLint parser version $(npm list @typescript-eslint/parser)"
+    - echo "Current working directory $(pwd)"
+    - echo "ESLint config file exists $(test -f .eslintrc.json && echo 'Yes' || echo 'No')"
+    - cat .eslintrc.json || echo "Could not read .eslintrc.json"
   script:
+    - echo "Testing ESLint configuration..."
+    - npx eslint --print-config src/index.ts > /dev/null || echo "ESLint config test failed"
+    - echo "Running linting..."
     - npm run lint
   artifacts:
     reports:
@@ -185,7 +125,7 @@ security_scan:
     - build
   script:
     - echo "Running security audit..."
-    - npm audit --audit-level moderate || echo "Security vulnerabilities found - please review and fix"
+    - npm audit || echo "Security vulnerabilities found - please review and fix"
     - echo "Audit report generated"
   allow_failure: true
   rules:
@@ -194,22 +134,12 @@ security_scan:
     - if: $CI_COMMIT_BRANCH == 'main'
     - if: $CI_COMMIT_BRANCH == 'develop'
 
-# SAST (Static Application Security Testing)
-sast:
-  stage: test
-
 # Build Docker Image
 build_docker:
   stage: test  # Move to test stage so it runs after lint
   image: docker:26.1.4
   services:
     - docker:26.1.4-dind
-  variables:
-    DOCKER_TLS_CERTDIR: "/certs"
-    DOCKER_HOST: tcp://docker:2376
-    DOCKER_TLS_VERIFY: 1
-    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
-    DOCKER_DRIVER: overlay2
   needs:
     - job: build
       artifacts: true
@@ -265,6 +195,133 @@ build_docker:
     - if: $CI_COMMIT_BRANCH == 'develop'
     - if: $CI_COMMIT_TAG
 
+# Override code_quality job from Auto-DevOps to fix Docker TLS issues
+code_quality:
+  stage: test
+  image: docker:20.10.12
+  services:
+    - docker:20.10.12-dind
+  before_script:
+    - |
+      # Install wget if not available
+      apk add --no-cache wget ca-certificates
+      
+      # Download and install CA certificate (if CA_CERT_URL is provided)
+      if [ -n "$CA_CERT_URL" ]; then
+        echo "Downloading CA certificate from $CA_CERT_URL..."
+        wget -q -O /usr/local/share/ca-certificates/custom-ca.crt "$CA_CERT_URL"
+        update-ca-certificates
+        
+        # Also add the CA certificate to Docker's certificate directory for the registry
+        mkdir -p "/etc/docker/certs.d/${CI_REGISTRY}"
+        cp /usr/local/share/ca-certificates/custom-ca.crt "/etc/docker/certs.d/${CI_REGISTRY}/ca.crt"
+        echo "CA certificate configured for registry: $CI_REGISTRY"
+      else
+        echo "No CA_CERT_URL provided, skipping custom CA certificate setup"
+      fi
+      
+      # Wait for Docker daemon to be ready with TLS
+      timeout=60
+      while [ $timeout -gt 0 ]; do
+        if docker info >/dev/null 2>&1; then
+          echo "Docker daemon is ready"
+          break
+        fi
+        echo "Waiting for Docker daemon... ($timeout seconds remaining)"
+        sleep 2
+        timeout=$((timeout - 2))
+      done
+      
+      if [ $timeout -le 0 ]; then
+        echo "Docker daemon failed to start within timeout"
+        exit 1
+      fi
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH == 'master'
+    - if: $CI_COMMIT_BRANCH == 'main'
+    - if: $CI_COMMIT_BRANCH == 'develop'
+
+# SAST (Static Application Security Testing)
+sast:
+  stage: test
+
+# SonarQube Analysis
+sonar_scan:
+  stage: test
+  image: sonarsource/sonar-scanner-cli:11
+  needs:
+    - job: build
+      artifacts: true
+    - job: lint  # Wait for linting to complete
+    - job: test
+      artifacts: true
+  dependencies:
+    - build
+    - test
+  cache:
+    policy: pull-push
+    key: "sonar-cache-$CI_COMMIT_REF_SLUG"
+    paths:
+      - "${SONAR_USER_HOME}/cache"
+      - sonar-scanner/
+  before_script:
+    - |
+      # Check if SONAR_HOST_URL is set and valid
+      if [ -z "$SONAR_HOST_URL" ]; then
+        echo "SONAR_HOST_URL is not set. Skipping SonarQube analysis."
+        exit 0
+      fi
+      # Add scheme if missing
+      if [[ ! "$SONAR_HOST_URL" =~ ^https?:// ]]; then
+        echo "Adding http:// scheme to SONAR_HOST_URL"
+        export SONAR_HOST_URL="http://${SONAR_HOST_URL}"
+      fi
+      echo "SonarQube URL: $SONAR_HOST_URL"
+  script: 
+    - sonar-scanner -Dsonar.host.url="${SONAR_HOST_URL}"
+  allow_failure: true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH == 'master'
+    - if: $CI_COMMIT_BRANCH == 'main'
+    - if: $CI_COMMIT_BRANCH == 'develop'
+
+# Test stage
+test:
+  stage: test
+  image: node:20
+  services: []  # Override Auto-DevOps services
+  needs:
+    - job: build
+      artifacts: true
+    - job: lint  # Wait for linting to pass before running tests
+  dependencies:
+    - build
+  before_script:
+    - ls -la  # Debug: check if artifacts are present
+    - ls -la node_modules/ || echo "node_modules not found"
+    - which jest || echo "jest not found in PATH"
+    - npm list jest || echo "jest not in npm list"
+  script:
+    - npm run test:ci
+  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
+  artifacts:
+    when: always
+    reports:
+      junit: junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/cobertura-coverage.xml
+    paths:
+      - coverage/
+    expire_in: 1 week
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH == 'master'
+    - if: $CI_COMMIT_BRANCH == 'main'
+    - if: $CI_COMMIT_BRANCH == 'develop'
+    
 # Deploy to staging
 # deploy_staging:
 #   stage: staging
