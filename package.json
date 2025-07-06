@@ -1,0 +1,66 @@
+{
+  "name": "amber-discord-bot",
+  "version": "1.1.0",
+  "description": "Self-hosted Discord Music Bot with multi-platform streaming support",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:ci": "jest --coverage --ci --reporters=default --reporters=jest-junit"
+  },
+  "keywords": [
+    "discord",
+    "music",
+    "bot",
+    "streaming",
+    "youtube",
+    "spotify",
+    "soundcloud"
+  ],
+  "author": "Amber Discord Bot",
+  "license": "MIT",
+  "dependencies": {
+    "@discordjs/voice": "^0.17.0",
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.3.1",
+    "ffmpeg-static": "^5.2.0",
+    "libsodium-wrappers": "^0.7.13",
+    "@discordjs/opus": "^0.10.0",
+    "play-dl": "^1.9.7",
+    "spotify-web-api-node": "^5.0.2",
+    "@distube/ytdl-core": "^4.14.4"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.8",
+    "@types/node": "^20.10.5",
+    "@types/spotify-web-api-node": "^5.0.11",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.57.1",
+    "jest": "^29.7.0",
+    "jest-junit": "^16.0.0",
+    "ts-jest": "^29.1.1",
+    "tsx": "^4.6.2",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.18.1"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/baguilartech/AMBER.git"
+  },
+  "bugs": {
+    "url": "https://github.com/baguilartech/AMBER/issues"
+  },
+  "homepage": "https://github.com/baguilartech/AMBER#readme"
+}

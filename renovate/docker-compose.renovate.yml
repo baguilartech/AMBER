@@ -1,0 +1,46 @@
+  version: '3.8'
+
+  services:
+    renovate:
+      image: renovate/renovate:latest
+      container_name: renovate-bot
+      environment:
+        # GitLab Configuration
+        - RENOVATE_PLATFORM=gitlab
+        - RENOVATE_ENDPOINT=https://gitlab.DOMAIN.com/api/v4/
+        - RENOVATE_TOKEN=glpat-TOKEN
+
+        # Renovate Configuration
+        - RENOVATE_AUTODISCOVER=true
+        - RENOVATE_AUTODISCOVER_FILTER=discord-bots/*
+        - LOG_LEVEL=info
+        - RENOVATE_CONFIG_FILE=/config/config.json
+
+        # Git Configuration
+        - RENOVATE_GIT_AUTHOR=Renovate Bot <renovate-bot@DOMAIN.com>
+        - RENOVATE_USERNAME=renovate-bot
+
+        # Security & Performance
+        - RENOVATE_REQUIRE_CONFIG=required
+        - RENOVATE_ONBOARDING=true
+        - RENOVATE_PERSIST_REPO_DATA=true
+        - NODE_TLS_REJECT_UNAUTHORIZED=0
+
+      volumes:
+        - /srv/renovate/renovate-config:/config:ro
+        - /etc/ssl/certs:/etc/ssl/certs:ro
+        - /srv/renovate/cache:/tmp/renovate/cache
+        - /srv/renovate/repos:/tmp/renovate/repos
+
+      restart: unless-stopped
+
+      deploy:
+        resources:
+          limits:
+            memory: 1G
+          reservations:
+            memory: 512M
+
+  volumes:
+    renovate-cache:
+    renovate-repos:

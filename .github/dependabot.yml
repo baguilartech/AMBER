@@ -1,0 +1,64 @@
+version: 2
+updates:
+  # NPM dependency updates
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    assignees:
+      - "baguilartech"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    # Group related updates
+    groups:
+      discord-dependencies:
+        patterns:
+          - "discord.js"
+          - "@discordjs/*"
+      dev-dependencies:
+        patterns:
+          - "@types/*"
+          - "eslint*"
+          - "jest*"
+          - "typescript"
+          - "tsx"
+      build-dependencies:
+        patterns:
+          - "docker*"
+          - "node*"
+    # Allow specific dependency types
+    allow:
+      - dependency-type: "development"
+      - dependency-type: "production"
+    
+  # GitHub Actions updates
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    assignees:
+      - "baguilartech"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+      
+  # Docker updates
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    assignees:
+      - "baguilartech"
+    commit-message:
+      prefix: "docker"
+      include: "scope"

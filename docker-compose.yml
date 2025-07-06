@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  discord-bot:
+    build: .
+    container_name: amber-discord-bot
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - .env
+    volumes:
+      - ./data:/usr/src/app/data
+      - ./logs:/usr/src/app/logs
+    networks:
+      - discord-bot-network
+    mem_limit: 512m
+    cpus: 0.5
+
+networks:
+  discord-bot-network:
+    driver: bridge
+
+volumes:
+  bot-data:
+    driver: local
