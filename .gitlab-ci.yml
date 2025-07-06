@@ -148,10 +148,14 @@ build-container:
   before_script:
     - |
       # Download and install the CA certificate
-      wget -O /tmp/ca.crt "http://ca.prodigalpros.com:8080/?action=ca-cert"
+      wget -O /tmp/ca.crt "${CA_CERT_URL}"
       mkdir -p /usr/local/share/ca-certificates/
       cp /tmp/ca.crt /usr/local/share/ca-certificates/prodigal-studios-ca.crt
       update-ca-certificates
+    - |
+      # Configure Docker to use the CA certificate
+      mkdir -p /etc/docker/certs.d/${GITLAB_HOST_FQDN}:5050
+      cp /tmp/ca.crt /etc/docker/certs.d/${GITLAB_HOST_FQDN}:5050/ca.crt
     - |
       # Wait for Docker daemon to be ready
       until docker info >/dev/null 2>&1; do
@@ -189,10 +193,14 @@ code_quality:
   before_script:
     - |
       # Download and install the CA certificate
-      wget -O /tmp/ca.crt "http://ca.prodigalpros.com:8080/?action=ca-cert"
+      wget -O /tmp/ca.crt "${CA_CERT_URL}"
       mkdir -p /usr/local/share/ca-certificates/
       cp /tmp/ca.crt /usr/local/share/ca-certificates/prodigal-studios-ca.crt
       update-ca-certificates
+    - |
+      # Configure Docker to use the CA certificate
+      mkdir -p /etc/docker/certs.d/${GITLAB_HOST_FQDN}:5050
+      cp /tmp/ca.crt /etc/docker/certs.d/${GITLAB_HOST_FQDN}:5050/ca.crt
     - |
       # Wait for Docker daemon to be ready
       until docker info >/dev/null 2>&1; do
