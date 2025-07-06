@@ -152,6 +152,13 @@ build-container:
     DOCKER_DRIVER: overlay2
   before_script:
     - |
+      # Install the CA certificate in the job container
+      if [ -f "/etc/gitlab-runner/certs/ca.crt" ]; then
+        mkdir -p /usr/local/share/ca-certificates/
+        cp /etc/gitlab-runner/certs/ca.crt /usr/local/share/ca-certificates/gitlab-ca.crt
+        update-ca-certificates
+      fi
+    - |
       # Wait for Docker daemon to be ready
       until docker info >/dev/null 2>&1; do
         echo "Waiting for Docker daemon..."
