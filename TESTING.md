@@ -160,22 +160,19 @@ docker-compose down
 #### 1. **SonarQube Configuration** (Optional but Recommended)
 ```yaml
 SONAR_HOST_URL
+SONAR_TOKEN
 ```
-- **Purpose**: URL of your SonarQube server
-- **Example**: `http://your-sonar-server.com:9000` or `https://sonarcloud.io`
+- **SONAR_HOST_URL**: URL of your SonarQube server
+  - **Example**: `http://your-sonar-server.com:9000` or `https://sonarcloud.io`
+- **SONAR_TOKEN**: Authentication token for SonarQube
+  - **How to create**: 
+    1. Log into SonarQube → My Account → Security → Tokens
+    2. Generate token with name "GitLab CI"
+    3. Copy token immediately (you won't see it again)
 - **Required for**: `sonar_scan` job
 - **Note**: If not set, SonarQube analysis will be skipped gracefully
 
-#### 2. **Custom CA Certificate** (Optional)
-```yaml
-CA_CERT_URL
-```
-- **Purpose**: URL to download custom CA certificate for Docker registry
-- **Example**: `http://ca.your-domain.com:8080/?action=ca-cert`
-- **Required for**: Private Docker registries with custom SSL certificates
-- **Note**: If not set, standard SSL certificate validation is used
-
-#### 3. **Docker Registry Variables** (Auto-provided by GitLab)
+#### 2. **Docker Registry Variables** (Auto-provided by GitLab)
 These are **automatically provided** by GitLab, no setup needed:
 ```yaml
 CI_REGISTRY          # your-gitlab-domain.com:5050 (automatically set)
@@ -184,7 +181,7 @@ CI_REGISTRY_PASSWORD # Auto-generated
 CI_REGISTRY_IMAGE    # Full image path
 ```
 
-#### 4. **Application Environment Variables** (For Runtime)
+#### 3. **Application Environment Variables** (For Runtime)
 Your Discord bot will need these when deployed:
 ```yaml
 DISCORD_TOKEN         # Your Discord bot token
@@ -205,7 +202,7 @@ Click **Add variable** for each one:
 | Variable | Value | Protected | Masked | Scope |
 |----------|-------|-----------|--------|-------|
 | `SONAR_HOST_URL` | `http://your-sonar-server:9000` | ❌ | ❌ | All |
-| `CA_CERT_URL` | `http://ca.your-domain.com:8080/?action=ca-cert` | ❌ | ❌ | All |
+| `SONAR_TOKEN` | `squ_your_sonar_token` | ✅ | ✅ | All |
 | `DISCORD_TOKEN` | `your_discord_bot_token` | ✅ | ✅ | All |
 | `SPOTIFY_CLIENT_ID` | `your_spotify_client_id` | ✅ | ❌ | All |
 | `SPOTIFY_CLIENT_SECRET` | `your_spotify_client_secret` | ✅ | ✅ | All |
@@ -226,9 +223,7 @@ Click **Add variable** for each one:
 ```yaml
 # For SonarQube code analysis
 SONAR_HOST_URL=http://your-sonar-server:9000
-
-# For private Docker registries with custom CA certificates
-CA_CERT_URL=http://ca.your-domain.com:8080/?action=ca-cert
+SONAR_TOKEN=squ_your_sonar_token
 
 # For actual bot deployment (not CI, but runtime)
 DISCORD_TOKEN=your_token_here
@@ -258,7 +253,6 @@ Add a debug job to verify variables:
 debug_vars:
   script:
     - echo "Registry: $CI_REGISTRY"
-    - echo "CA Certificate URL: $CA_CERT_URL"
     - echo "SonarQube: $SONAR_HOST_URL"
     - echo "Discord token set: $([ -n "$DISCORD_TOKEN" ] && echo 'Yes' || echo 'No')"
 ```
@@ -266,12 +260,11 @@ debug_vars:
 ### 🎯 Next Steps
 
 1. **Immediate**: 
-   - Set `CA_CERT_URL` if using private Docker registry with custom CA
    - Set `SONAR_HOST_URL` if you have SonarQube
 2. **Before Deployment**: Add Discord/Spotify tokens
 3. **Optional**: Add environment-specific variables as needed
 
-Your pipeline will work without any variables, but adding `CA_CERT_URL` will enable Docker registry access with custom certificates, and `SONAR_HOST_URL` will enable code quality analysis! 🚀
+Your pipeline will work without any variables, but adding `SONAR_HOST_URL` will enable code quality analysis! 🚀
 
 ### Artifact Dependencies
 ```yaml

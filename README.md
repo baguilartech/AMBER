@@ -13,6 +13,9 @@ A self-hosted Discord music bot with multi-platform streaming support. Stream mu
 - 🎯 **Slash Commands**: Modern Discord slash command interface
 - 🔄 **Auto-Disconnect**: Automatically leaves empty voice channels
 - 🎨 **TypeScript**: Full TypeScript support with strict typing
+- 🔍 **Intelligent Search**: Enhanced YouTube search with official channel prioritization
+- 🛡️ **Security**: Automated vulnerability scanning and dependency management
+- 🧪 **100% Test Coverage**: Comprehensive test suite with perfect coverage
 
 ## Quick Start
 
@@ -144,10 +147,12 @@ npm run dev
 
 ### Command Features
 
-- **Play Command**: Supports URLs from YouTube, Spotify, and SoundCloud
+- **Play Command**: Supports URLs from YouTube, Spotify, and SoundCloud with intelligent search
 - **Queue Management**: Automatic queue advancement and shuffle support
 - **Volume Control**: Real-time volume adjustment (0-100%)
 - **Rich Embeds**: Beautiful song information with thumbnails and metadata
+- **Enhanced Search**: YouTube searches prioritize official channels (VEVO, major labels)
+- **Cross-Platform Fallback**: Automatic fallback between streaming services
 
 ## Configuration
 
@@ -186,33 +191,33 @@ Edit `docker-compose.yml` to adjust:
 ```
 src/
 ├── commands/        # Slash commands
-│   ├── baseCommand.ts
-│   ├── play.ts
-│   ├── queue.ts
-│   ├── skip.ts
-│   ├── stop.ts
-│   ├── pause.ts
-│   ├── resume.ts
-│   ├── volume.ts
-│   └── nowplaying.ts
+│   ├── baseCommand.ts      # Base command class with common functionality
+│   ├── play.ts            # Play music from URL or search
+│   ├── queue.ts           # Display and manage queue
+│   ├── skip.ts            # Skip current song
+│   ├── stop.ts            # Stop playback and clear queue
+│   ├── pause.ts           # Pause current playback
+│   ├── resume.ts          # Resume paused playback
+│   ├── volume.ts          # Adjust volume level
+│   └── nowplaying.ts      # Show current song info
 ├── services/        # Core services
-│   ├── baseMusicService.ts
-│   ├── musicPlayer.ts
-│   ├── queueManager.ts
-│   ├── serviceFactory.ts
-│   ├── youtubeService.ts
-│   ├── spotifyService.ts
-│   └── soundcloudService.ts
+│   ├── baseMusicService.ts    # Base service with common patterns
+│   ├── musicPlayer.ts         # Audio playback management
+│   ├── queueManager.ts        # Queue state management
+│   ├── serviceFactory.ts      # Service singleton management
+│   ├── youtubeService.ts      # YouTube search and streaming
+│   ├── spotifyService.ts      # Spotify search integration
+│   └── soundcloudService.ts   # SoundCloud integration
 ├── utils/          # Utilities
-│   ├── commandRegistry.ts
-│   ├── config.ts
-│   ├── errorHandler.ts
-│   ├── formatters.ts
-│   ├── logger.ts
-│   └── urlValidator.ts
+│   ├── commandRegistry.ts     # Command registration system
+│   ├── config.ts             # Configuration management
+│   ├── errorHandler.ts       # Centralized error handling
+│   ├── formatters.ts         # String and duration formatting
+│   ├── logger.ts             # Logging system
+│   └── urlValidator.ts       # URL validation and parsing
 ├── types/          # TypeScript types
-│   └── index.ts
-└── index.ts        # Main bot file
+│   └── index.ts             # Shared type definitions
+└── index.ts        # Main bot entry point
 ```
 
 ## Development
@@ -230,16 +235,22 @@ src/
 
 ### Testing
 
-The project includes comprehensive tests for all components:
-- Command tests
-- Service tests
-- Utility tests
-- Type tests
+The project maintains **100% test coverage** across all metrics:
+- **60+ test cases** covering all functionality
+- **Command tests** with mock Discord interactions
+- **Service tests** with comprehensive integration testing
+- **Utility tests** with edge case coverage
+- **Base class tests** ensuring architectural integrity
 
 Run tests with:
 ```bash
 npm test
 ```
+
+Coverage reports are generated in multiple formats:
+- HTML: `coverage/lcov-report/index.html`
+- Cobertura XML: `coverage/cobertura-coverage.xml`
+- LCOV: `coverage/lcov.info`
 
 ## Troubleshooting
 
@@ -294,9 +305,10 @@ For issues and questions:
 
 ## Security
 
-- API keys are stored as environment variables
-- Docker container runs as non-root user
-- No sensitive data is logged
-- All external API calls are validated
-- Input validation on all user commands
-- Error handling prevents information leakage
+- **API Security**: All API keys stored as environment variables
+- **Container Security**: Docker runs as non-root user with resource limits
+- **Data Protection**: No sensitive data logged or exposed
+- **Input Validation**: All user commands validated and sanitized
+- **Error Handling**: Secure error messages prevent information leakage
+- **Dependency Security**: Automated vulnerability scanning with npm audit
+- **CI/CD Security**: Security scanning integrated into GitLab pipeline

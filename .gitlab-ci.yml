@@ -34,6 +34,7 @@ variables:
   # Container registry configuration
   DOCKER_TLS_CERTDIR: "/certs"
   CONTAINER_IMAGE: "${CI_REGISTRY_IMAGE}/discord-bot"
+  CS_IMAGE: "${CI_REGISTRY_IMAGE}/discord-bot:${CI_COMMIT_SHA}"
 
 # Cache template for Node.js projects
 .cache_template: &cache_template
@@ -111,6 +112,10 @@ sonar_scan:
     - |
       if [ -z "$SONAR_HOST_URL" ]; then
         echo "SONAR_HOST_URL is not set. Skipping SonarQube analysis."
+        exit 0
+      fi
+      if [ -z "$SONAR_TOKEN" ]; then
+        echo "SONAR_TOKEN is not set. Skipping SonarQube analysis."
         exit 0
       fi
       if [[ ! "$SONAR_HOST_URL" =~ ^https?:// ]]; then
