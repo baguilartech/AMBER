@@ -8,16 +8,11 @@ updates:
       day: "monday"
       time: "09:00"
     open-pull-requests-limit: 10
-    reviewers:
-      - "baguilartech"
     assignees:
       - "baguilartech"
     commit-message:
       prefix: "deps"
       include: "scope"
-    labels:
-      - "dependencies"
-      - "javascript"
     # Group related updates
     groups:
       discord-dependencies:
@@ -48,16 +43,11 @@ updates:
       day: "monday"
       time: "09:00"
     open-pull-requests-limit: 5
-    reviewers:
-      - "baguilartech"
     assignees:
       - "baguilartech"
     commit-message:
       prefix: "ci"
       include: "scope"
-    labels:
-      - "github-actions"
-      - "ci"
       
   # Docker updates
   - package-ecosystem: "docker"
@@ -67,13 +57,8 @@ updates:
       day: "monday"
       time: "09:00"
     open-pull-requests-limit: 5
-    reviewers:
-      - "baguilartech"
     assignees:
       - "baguilartech"
     commit-message:
       prefix: "docker"
       include: "scope"
-    labels:
-      - "docker"
-      - "infrastructure"
