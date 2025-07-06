@@ -140,22 +140,33 @@ build-container:
   stage: build
   image: docker:20.10.16
   services:
-    - docker:20.10.16-dind
+    - name: docker:20.10.16-dind
+      command: ["--tls=false"]
   variables:
-    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_DRIVER: overlay2
   before_script:
     - |
-      # Download and install the CA certificate
+      # Download and install the CA certificate for registry access
       wget -O /tmp/ca.crt "http://ca.prodigalpros.com:8080/?action=ca-cert"
       mkdir -p /usr/local/share/ca-certificates/
       cp /tmp/ca.crt /usr/local/share/ca-certificates/prodigal-studios-ca.crt
       update-ca-certificates
     - |
-      # Wait for Docker daemon to be ready
-      until docker info >/dev/null 2>&1; do
-        echo "Waiting for Docker daemon..."
+      # Wait for Docker daemon to be ready with timeout
+      echo "Waiting for Docker daemon..."
+      timeout=60
+      while ! docker info >/dev/null 2>&1; do
+        if [ $timeout -eq 0 ]; then
+          echo "Docker daemon failed to start within 60 seconds"
+          exit 1
+        fi
+        echo "Waiting for Docker daemon... ($timeout seconds remaining)"
         sleep 1
+        timeout=$((timeout-1))
       done
+      echo "Docker daemon is ready"
     - echo "Logging into GitLab Container Registry..."
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
@@ -178,23 +189,34 @@ code_quality:
   stage: test
   image: docker:20.10.16
   services:
-    - docker:20.10.16-dind
+    - name: docker:20.10.16-dind
+      command: ["--tls=false"]
   variables:
-    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_DRIVER: overlay2
     CODE_QUALITY_IMAGE: "registry.gitlab.com/gitlab-org/ci-cd/codequality:latest"
   before_script:
     - |
-      # Download and install the CA certificate
+      # Download and install the CA certificate for registry access
       wget -O /tmp/ca.crt "http://ca.prodigalpros.com:8080/?action=ca-cert"
       mkdir -p /usr/local/share/ca-certificates/
       cp /tmp/ca.crt /usr/local/share/ca-certificates/prodigal-studios-ca.crt
       update-ca-certificates
     - |
-      # Wait for Docker daemon to be ready
-      until docker info >/dev/null 2>&1; do
-        echo "Waiting for Docker daemon..."
+      # Wait for Docker daemon to be ready with timeout
+      echo "Waiting for Docker daemon..."
+      timeout=60
+      while ! docker info >/dev/null 2>&1; do
+        if [ $timeout -eq 0 ]; then
+          echo "Docker daemon failed to start within 60 seconds"
+          exit 1
+        fi
+        echo "Waiting for Docker daemon... ($timeout seconds remaining)"
         sleep 1
+        timeout=$((timeout-1))
       done
+      echo "Docker daemon is ready"
   script:
     - |
       export SOURCE_CODE=${SOURCE_CODE:-$PWD}
