@@ -60,9 +60,9 @@ variables:
   services:
     - name: docker:26.1.4-dind
       alias: docker
-      command: ["--tls=true", "--tlscert=/certs/server/cert.pem", "--tlskey=/certs/server/key.pem", "--tlsverify=true", "--tlscacert=/certs/server/ca.pem", "--host=tcp://0.0.0.0:2376"]
+      # Remove explicit command to let DinD handle TLS setup automatically
   variables:
-    # Override global variables with specific TLS settings for this job
+    # Use the standard DinD TLS setup
     DOCKER_TLS_CERTDIR: "/certs"
     DOCKER_HOST: tcp://docker:2376
     DOCKER_TLS_VERIFY: 1
@@ -71,8 +71,6 @@ variables:
     # Add timeout settings
     DOCKER_CLI_TIMEOUT: 300
     COMPOSE_HTTP_TIMEOUT: 300
-    # Ensure certificates are generated properly
-    DOCKER_TLS_SAN: "DNS:docker,DNS:localhost,IP:127.0.0.1"
 
 # Common Docker TLS setup script
 .docker_tls_setup: &docker_tls_setup |
@@ -100,109 +98,13 @@ variables:
   echo "DOCKER_CERT_PATH: $DOCKER_CERT_PATH"
   echo "DOCKER_TLS_CERTDIR: $DOCKER_TLS_CERTDIR"
   
-  # Wait for certificates to be generated in any location
-  echo "Waiting for Docker TLS certificates to be generated..."
-  timeout=90
+  # Wait for Docker daemon and certificates to be ready
+  echo "Waiting for Docker daemon to start and generate certificates..."
+  timeout=120
   while [ $timeout -gt 0 ]; do
-    # Check if any certificates exist in the certs directory
-    if find "$DOCKER_TLS_CERTDIR" -name "*.pem" 2>/dev/null | grep -q .; then
-      echo "Docker TLS certificates found"
-      break
-    fi
-    # Also check if the Docker daemon is generating certificates
-    if [ -f "$DOCKER_TLS_CERTDIR/server/cert.pem" ] || [ -f "$DOCKER_TLS_CERTDIR/client/cert.pem" ]; then
-      echo "Docker TLS certificates found in subdirectories"
-      break
-    fi
-    echo "Waiting for certificates... ($timeout seconds remaining)"
-    sleep 3
-    timeout=$((timeout - 3))
-  done
-  
-  # Show all certificates found
-  echo "Certificate directory contents:"
-  find "$DOCKER_TLS_CERTDIR" -type f -name "*.pem" 2>/dev/null | while read cert; do
-    echo "Found certificate: $cert"
-    ls -la "$cert"
-  done
-  
-  # Ensure client directory exists
-  mkdir -p "$DOCKER_CERT_PATH"
-  
-  # Copy certificates from server to client directory if they don't exist in client
-  echo "Ensuring client certificates are available..."
-  
-  # Copy ca.pem (try multiple sources)
-  if [ ! -f "$DOCKER_CERT_PATH/ca.pem" ]; then
-    echo "Looking for ca.pem certificate..."
-    if [ -f "$DOCKER_TLS_CERTDIR/server/ca.pem" ]; then
-      echo "Copying ca.pem from server directory..."
-      cp "$DOCKER_TLS_CERTDIR/server/ca.pem" "$DOCKER_CERT_PATH/ca.pem"
-    elif [ -f "$DOCKER_TLS_CERTDIR/ca.pem" ]; then
-      echo "Copying ca.pem from root directory..."
-      cp "$DOCKER_TLS_CERTDIR/ca.pem" "$DOCKER_CERT_PATH/ca.pem"
-    elif [ -f "$DOCKER_TLS_CERTDIR/client/ca.pem" ]; then
-      echo "ca.pem already in client directory, copying to ensure permissions..."
-      cp "$DOCKER_TLS_CERTDIR/client/ca.pem" "$DOCKER_CERT_PATH/ca.pem"
-    else
-      echo "WARNING: ca.pem not found in any expected location"
-    fi
-  fi
-  
-  # Copy cert.pem (client certificate)
-  if [ ! -f "$DOCKER_CERT_PATH/cert.pem" ]; then
-    echo "Looking for client cert.pem..."
-    if [ -f "$DOCKER_TLS_CERTDIR/client/cert.pem" ]; then
-      echo "Client cert.pem found in client directory"
-      cp "$DOCKER_TLS_CERTDIR/client/cert.pem" "$DOCKER_CERT_PATH/cert.pem"
-    elif [ -f "$DOCKER_TLS_CERTDIR/server/cert.pem" ]; then
-      echo "Using server cert.pem as fallback for client..."
-      cp "$DOCKER_TLS_CERTDIR/server/cert.pem" "$DOCKER_CERT_PATH/cert.pem"
-    else
-      echo "WARNING: cert.pem not found in any expected location"
-    fi
-  fi
-  
-  # Copy key.pem (client private key)
-  if [ ! -f "$DOCKER_CERT_PATH/key.pem" ]; then
-    echo "Looking for client key.pem..."
-    if [ -f "$DOCKER_TLS_CERTDIR/client/key.pem" ]; then
-      echo "Client key.pem found in client directory"
-      cp "$DOCKER_TLS_CERTDIR/client/key.pem" "$DOCKER_CERT_PATH/key.pem"
-    elif [ -f "$DOCKER_TLS_CERTDIR/server/key.pem" ]; then
-      echo "Using server key.pem as fallback for client..."
-      cp "$DOCKER_TLS_CERTDIR/server/key.pem" "$DOCKER_CERT_PATH/key.pem"
-    else
-      echo "WARNING: key.pem not found in any expected location"
-    fi
-  fi
-  
-  # Set proper permissions on certificates
-  if [ -f "$DOCKER_CERT_PATH/ca.pem" ]; then
-    chmod 644 "$DOCKER_CERT_PATH/ca.pem"
-  fi
-  if [ -f "$DOCKER_CERT_PATH/cert.pem" ]; then
-    chmod 644 "$DOCKER_CERT_PATH/cert.pem"
-  fi
-  if [ -f "$DOCKER_CERT_PATH/key.pem" ]; then
-    chmod 600 "$DOCKER_CERT_PATH/key.pem"
-  fi
-  
-  # Final check of client directory
-  echo "Final client certificate directory contents:"
-  if [ -d "$DOCKER_CERT_PATH" ]; then
-    ls -la "$DOCKER_CERT_PATH"
-  else
-    echo "Client certificate directory still not found: $DOCKER_CERT_PATH"
-  fi
-  
-  # Wait for Docker daemon to be ready with TLS
-  echo "Waiting for Docker daemon to be ready..."
-  timeout=120  # Increased timeout
-  while [ $timeout -gt 0 ]; do
+    # Check if Docker daemon is responding (this will trigger certificate generation)
     if docker version >/dev/null 2>&1; then
-      echo "Docker daemon is ready"
-      docker version
+      echo "Docker daemon is responding"
       break
     fi
     echo "Waiting for Docker daemon... ($timeout seconds remaining)"
@@ -212,15 +114,21 @@ variables:
   
   if [ $timeout -le 0 ]; then
     echo "Docker daemon failed to start within timeout"
-    echo "Attempting to diagnose the issue..."
-    echo "Final certificate check:"
-    find "$DOCKER_TLS_CERTDIR" -name "*.pem" -exec ls -la {} \; 2>/dev/null || echo "No certificates found"
-    echo "Docker info output:"
-    docker info || echo "Docker info failed"
-    echo "Docker version output:"
-    docker version || echo "Docker version failed"
     exit 1
   fi
+  
+  # Now wait a bit more for certificates to be fully generated
+  echo "Waiting for certificates to be fully generated..."
+  sleep 10
+  
+  # Debug: Show certificate directory structure
+  echo "Certificate directory structure:"
+  find "$DOCKER_TLS_CERTDIR" -type f 2>/dev/null | head -20 || echo "No files found in $DOCKER_TLS_CERTDIR"
+  
+  # Verify Docker is working with TLS
+  echo "Testing Docker TLS connection..."
+  docker version
+  echo "Docker TLS connection successful!"
 
 # Build stage
 build:
