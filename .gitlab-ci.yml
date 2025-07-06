@@ -60,12 +60,12 @@ variables:
   services:
     - name: docker:26.1.4-dind
       alias: docker
-      # Remove explicit command to let DinD handle TLS setup automatically
+      command: ["--tls=true", "--tlsverify=false", "--host=tcp://0.0.0.0:2376"]
   variables:
-    # Use the standard DinD TLS setup
+    # Use TLS but without client verification to simplify connectivity
     DOCKER_TLS_CERTDIR: "/certs"
     DOCKER_HOST: tcp://docker:2376
-    DOCKER_TLS_VERIFY: 1
+    DOCKER_TLS_VERIFY: 0  # Disable client cert verification for now
     DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
     DOCKER_DRIVER: overlay2
     # Add timeout settings
@@ -74,8 +74,8 @@ variables:
 
 # Common Docker TLS setup script
 .docker_tls_setup: &docker_tls_setup |
-  # Install wget if not available
-  apk add --no-cache wget ca-certificates curl
+  # Install required tools
+  apk add --no-cache wget ca-certificates curl netcat-openbsd
   
   # Download and install CA certificate (if CA_CERT_URL is provided)
   if [ -n "$CA_CERT_URL" ]; then
@@ -91,44 +91,51 @@ variables:
     echo "No CA_CERT_URL provided, skipping custom CA certificate setup"
   fi
   
-  # Debug TLS setup
-  echo "Docker TLS configuration:"
+  # Debug Docker setup
+  echo "Docker configuration:"
   echo "DOCKER_HOST: $DOCKER_HOST"
   echo "DOCKER_TLS_VERIFY: $DOCKER_TLS_VERIFY"
   echo "DOCKER_CERT_PATH: $DOCKER_CERT_PATH"
   echo "DOCKER_TLS_CERTDIR: $DOCKER_TLS_CERTDIR"
   
-  # Wait for Docker daemon and certificates to be ready
-  echo "Waiting for Docker daemon to start and generate certificates..."
+  # Wait for Docker daemon to be ready
+  echo "Waiting for Docker daemon to start..."
   timeout=120
   while [ $timeout -gt 0 ]; do
-    # Check if Docker daemon is responding (this will trigger certificate generation)
+    # Try to connect to Docker daemon
     if docker version >/dev/null 2>&1; then
       echo "Docker daemon is responding"
       break
     fi
+    # Also try basic connectivity test
+    if nc -z docker 2376 2>/dev/null; then
+      echo "Docker port 2376 is reachable"
+      # Try Docker command again
+      if docker version >/dev/null 2>&1; then
+        echo "Docker daemon is responding after port check"
+        break
+      fi
+    fi
     echo "Waiting for Docker daemon... ($timeout seconds remaining)"
-    sleep 3
-    timeout=$((timeout - 3))
+    sleep 5
+    timeout=$((timeout - 5))
   done
   
   if [ $timeout -le 0 ]; then
     echo "Docker daemon failed to start within timeout"
+    echo "Attempting diagnosis..."
+    echo "Network connectivity test:"
+    nc -z docker 2376 && echo "Port 2376 is reachable" || echo "Port 2376 is not reachable"
+    nc -z docker 2375 && echo "Port 2375 is reachable" || echo "Port 2375 is not reachable"
+    echo "Docker command output:"
+    docker version 2>&1 || echo "Docker command failed"
     exit 1
   fi
   
-  # Now wait a bit more for certificates to be fully generated
-  echo "Waiting for certificates to be fully generated..."
-  sleep 10
-  
-  # Debug: Show certificate directory structure
-  echo "Certificate directory structure:"
-  find "$DOCKER_TLS_CERTDIR" -type f 2>/dev/null | head -20 || echo "No files found in $DOCKER_TLS_CERTDIR"
-  
-  # Verify Docker is working with TLS
-  echo "Testing Docker TLS connection..."
+  # Verify Docker is working
+  echo "Testing Docker connection..."
   docker version
-  echo "Docker TLS connection successful!"
+  echo "Docker connection successful!"
 
 # Build stage
 build:
