@@ -77,12 +77,13 @@ test:
   artifacts:
     when: always
     reports:
-      junit: junit.xml
+      junit: reports/junit.xml
       coverage_report:
         coverage_format: cobertura
         path: coverage/cobertura-coverage.xml
     paths:
       - coverage/
+      - reports/
     expire_in: 1 week
 
 # Override linting (run in test stage)
@@ -92,6 +93,7 @@ lint:
   services: []
   script:
     - npm run lint
+    - npm run lint:ci
   artifacts:
     reports:
       junit: reports/lint-results.xml
@@ -188,6 +190,10 @@ release:
   <<: *cache_template
   before_script:
     - npm ci --cache .npm --prefer-offline
+    - |
+      # Configure npm authentication for GitHub registry
+      echo "@baguilartech:registry=https://npm.pkg.github.com/" >> .npmrc
+      echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> .npmrc
   script:
     - npm run build
     - npm run test:ci
@@ -195,7 +201,7 @@ release:
     - echo "Creating GitLab release for tag $CI_COMMIT_TAG"
     - |
       if [ -n "$CI_COMMIT_TAG" ]; then
-        echo "Publishing to GitLab Package Registry..."
+        echo "Publishing to GitHub Package Registry..."
         npm publish
       fi
   artifacts:

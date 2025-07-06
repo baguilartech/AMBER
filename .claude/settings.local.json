@@ -11,7 +11,8 @@
       "Bash(npm run build:*)",
       "Bash(docker-compose up:*)",
       "Bash(curl:*)",
-      "Bash(ansible:*)"
+      "Bash(ansible:*)",
+      "Bash(npm run test:ci:*)"
     ],
     "deny": []
   }

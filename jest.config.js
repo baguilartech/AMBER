@@ -31,7 +31,10 @@ module.exports = {
     }
   },
   // setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
-  testResultsProcessor: 'jest-junit',
+  reporters: [
+    'default',
+    ['jest-junit', { outputDirectory: './reports', outputName: 'junit.xml' }]
+  ],
   testTimeout: 10000,
   verbose: true
 };
