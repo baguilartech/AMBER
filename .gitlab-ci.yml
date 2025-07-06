@@ -142,7 +142,9 @@ build-container:
   services:
     - docker:20.10.16-dind
   variables:
-    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_DRIVER: overlay2
   before_script:
     - |
       # Download and install the CA certificate
@@ -180,7 +182,9 @@ code_quality:
   services:
     - docker:20.10.16-dind
   variables:
-    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_DRIVER: overlay2
     CODE_QUALITY_IMAGE: "registry.gitlab.com/gitlab-org/ci-cd/codequality:latest"
   before_script:
     - |
