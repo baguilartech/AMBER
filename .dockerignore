@@ -16,3 +16,9 @@ coverage
 *.swp
 *.swo
 *~
+.github
+.gitlab
+test
+*.md
+analysis
+renovate

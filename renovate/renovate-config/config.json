@@ -1,0 +1,31 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "platform": "gitlab",
+  "endpoint": "https://gitlab.DOMAIN.com/api/v4/",
+  "autodiscover": true,
+  "autodiscoverFilter": "discord-bots/*",
+  "gitAuthor": "Renovate Bot <renovate@DOMAIN.com>",
+  "username": "renovate-bot",
+  "onboarding": true,
+  "requireConfig": "required",
+  "repositories": [
+    "discord-bots/amber"
+  ],
+  "schedule": ["before 10am on monday"],
+  "timezone": "America/Los_Angeles",
+  "persistRepoData": true,
+  "prConcurrentLimit": 10,
+  "prHourlyLimit": 2,
+  "packageRules": [
+    {
+      "matchManagers": ["npm"],
+      "semanticCommitType": "deps",
+      "semanticCommitScope": "npm"
+    },
+    {
+      "matchManagers": ["dockerfile"],
+      "semanticCommitType": "deps",
+      "semanticCommitScope": "docker"
+    }
+  ]
+}

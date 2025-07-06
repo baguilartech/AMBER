@@ -51,5 +51,16 @@
   },
   "engines": {
     "node": ">=20.18.1"
-  }
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/baguilartech/AMBER.git"
+  },
+  "bugs": {
+    "url": "https://github.com/baguilartech/AMBER/issues"
+  },
+  "homepage": "https://github.com/baguilartech/AMBER#readme"
 }

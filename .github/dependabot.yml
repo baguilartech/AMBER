@@ -1,0 +1,81 @@
+version: 2
+updates:
+  # NPM dependency updates
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "baguilartech"
+    assignees:
+      - "baguilartech"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "javascript"
+    # Group related updates
+    groups:
+      discord-dependencies:
+        patterns:
+          - "discord.js"
+          - "@discordjs/*"
+      dev-dependencies:
+        patterns:
+          - "@types/*"
+          - "eslint*"
+          - "jest*"
+          - "typescript"
+          - "tsx"
+      build-dependencies:
+        patterns:
+          - "docker*"
+          - "node*"
+    # Auto-merge minor and patch updates for dev dependencies
+    allow:
+      - dependency-type: "direct:development"
+        update-type: "version-update:semver-patch"
+      - dependency-type: "direct:development"
+        update-type: "version-update:semver-minor"
+    
+  # GitHub Actions updates
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "baguilartech"
+    assignees:
+      - "baguilartech"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "github-actions"
+      - "ci"
+      
+  # Docker updates
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "baguilartech"
+    assignees:
+      - "baguilartech"
+    commit-message:
+      prefix: "docker"
+      include: "scope"
+    labels:
+      - "docker"
+      - "infrastructure"
