@@ -152,9 +152,23 @@ build-container:
     DOCKER_DRIVER: overlay2
   before_script:
     - |
+      # Debug what's actually mounted
+      echo "=== DEBUG: What's in /etc/gitlab-runner ==="
+      ls -la /etc/gitlab-runner/ || echo "No /etc/gitlab-runner directory"
+      ls -la /etc/gitlab-runner/certs/ || echo "No certs directory"
+      find /etc/gitlab-runner -name "*.crt" || echo "No .crt files found"
+      echo "=== END DEBUG ==="
+    - |
       # The trick from StackOverflow: copy CA cert and update certificates
-      cp /etc/gitlab-runner/certs/ca.crt /usr/local/share/ca-certificates/ca.crt
-      update-ca-certificates
+      if [ -f "/etc/gitlab-runner/certs/gitlab.prodigalpros.com.crt" ]; then
+        cp /etc/gitlab-runner/certs/gitlab.prodigalpros.com.crt /usr/local/share/ca-certificates/ca.crt
+        update-ca-certificates
+      elif [ -f "/etc/gitlab-runner/certs/ca.crt" ]; then
+        cp /etc/gitlab-runner/certs/ca.crt /usr/local/share/ca-certificates/ca.crt
+        update-ca-certificates
+      else
+        echo "No certificate found to copy"
+      fi
     - |
       # Wait for Docker daemon to be ready
       until docker info >/dev/null 2>&1; do
