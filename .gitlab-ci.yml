@@ -152,25 +152,9 @@ build-container:
     DOCKER_DRIVER: overlay2
   before_script:
     - |
-      # Debug certificate availability
-      echo "=== DEBUG: Certificate debugging ==="
-      ls -la /etc/gitlab-runner/certs/ || echo "No certs directory"
-      if [ -f "/etc/gitlab-runner/certs/ca.crt" ]; then
-        echo "Certificate found, contents:"
-        head -5 /etc/gitlab-runner/certs/ca.crt
-        echo "Installing certificate..."
-        mkdir -p /usr/local/share/ca-certificates/
-        cp /etc/gitlab-runner/certs/ca.crt /usr/local/share/ca-certificates/gitlab-ca.crt
-        update-ca-certificates
-        # Also configure Docker to use the certificate
-        mkdir -p /etc/docker/certs.d/${GITLAB_HOST_FQDN}:5050
-        cp /etc/gitlab-runner/certs/ca.crt /etc/docker/certs.d/${GITLAB_HOST_FQDN}:5050/ca.crt
-        echo "Certificate installed in Docker certs dir"
-        ls -la /etc/docker/certs.d/${GITLAB_HOST_FQDN}:5050/
-      else
-        echo "No certificate found at /etc/gitlab-runner/certs/ca.crt"
-      fi
-      echo "=== END DEBUG ==="
+      # The trick from StackOverflow: copy CA cert and update certificates
+      cp /etc/gitlab-runner/certs/ca.crt /usr/local/share/ca-certificates/ca.crt
+      update-ca-certificates
     - |
       # Wait for Docker daemon to be ready
       until docker info >/dev/null 2>&1; do
@@ -178,10 +162,6 @@ build-container:
         sleep 1
       done
     - echo "Logging into GitLab Container Registry..."
-    - |
-      # Test registry connectivity with certificate
-      echo "Testing registry with CA certificate..."
-      wget --ca-certificate=/etc/gitlab-runner/certs/ca.crt --spider https://${GITLAB_HOST_FQDN}:5050/v2/ || echo "Wget test failed"
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
   script:
     - echo "Building Discord bot container image..."
