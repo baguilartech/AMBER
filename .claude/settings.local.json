@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "Bash(mkdir:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run test:coverage:*)",
+      "Bash(npm test:*)",
+      "Bash(rm:*)",
+      "Bash(docker-compose build:*)",
+      "Bash(npm run build:*)",
+      "Bash(docker-compose up:*)"
+    ],
+    "deny": []
+  }
+}
