@@ -1,6 +1,5 @@
 import { MusicService, Song } from '../types';
 import { ErrorHandler } from '../utils/errorHandler';
-import { URLValidator } from '../utils/urlValidator';
 import { ServiceFactory } from './serviceFactory';
 
 export abstract class BaseMusicService implements MusicService {
@@ -39,6 +38,7 @@ export abstract class BaseMusicService implements MusicService {
     return [];
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async getSongFromUrl?(url: string, requestedBy: string): Promise<Song | null> {
     // Default implementation - can be overridden by services
     return null;

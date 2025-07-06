@@ -60,7 +60,7 @@ variables:
   services:
     - name: docker:26.1.4-dind
       alias: docker
-      command: ["--tls=true", "--tlscert=/certs/server/cert.pem", "--tlskey=/certs/server/key.pem", "--tlsverify=true", "--tlscacert=/certs/server/ca.pem"]
+      command: ["--tls=true", "--tlscert=/certs/server/cert.pem", "--tlskey=/certs/server/key.pem", "--tlsverify=true", "--tlscacert=/certs/server/ca.pem", "--host=tcp://0.0.0.0:2376"]
   variables:
     # Override global variables with specific TLS settings for this job
     DOCKER_TLS_CERTDIR: "/certs"
@@ -71,6 +71,8 @@ variables:
     # Add timeout settings
     DOCKER_CLI_TIMEOUT: 300
     COMPOSE_HTTP_TIMEOUT: 300
+    # Ensure certificates are generated properly
+    DOCKER_TLS_SAN: "DNS:docker,DNS:localhost,IP:127.0.0.1"
 
 # Common Docker TLS setup script
 .docker_tls_setup: &docker_tls_setup |
@@ -98,12 +100,37 @@ variables:
   echo "DOCKER_CERT_PATH: $DOCKER_CERT_PATH"
   echo "DOCKER_TLS_CERTDIR: $DOCKER_TLS_CERTDIR"
   
-  # Check if certificates exist
+  # Wait for certificates to be generated
+  echo "Waiting for Docker TLS certificates to be generated..."
+  timeout=60
+  while [ $timeout -gt 0 ]; do
+    if [ -f "$DOCKER_TLS_CERTDIR/client/ca.pem" ] && [ -f "$DOCKER_TLS_CERTDIR/client/cert.pem" ] && [ -f "$DOCKER_TLS_CERTDIR/client/key.pem" ]; then
+      echo "Docker TLS certificates are ready"
+      break
+    fi
+    echo "Waiting for certificates... ($timeout seconds remaining)"
+    sleep 2
+    timeout=$((timeout - 2))
+  done
+  
+  # Check if certificates exist and show detailed info
+  echo "Certificate directory contents:"
+  find "$DOCKER_TLS_CERTDIR" -type f -name "*.pem" 2>/dev/null | while read cert; do
+    echo "Found certificate: $cert"
+    ls -la "$cert"
+  done
+  
   if [ -d "$DOCKER_CERT_PATH" ]; then
-    echo "TLS certificates found:"
+    echo "TLS certificates found in client directory:"
     ls -la "$DOCKER_CERT_PATH"
   else
     echo "TLS certificates directory not found: $DOCKER_CERT_PATH"
+  fi
+  
+  # Check if ca.pem exists, if not try to copy from server directory
+  if [ ! -f "$DOCKER_CERT_PATH/ca.pem" ] && [ -f "$DOCKER_TLS_CERTDIR/server/ca.pem" ]; then
+    echo "Copying ca.pem from server to client directory..."
+    cp "$DOCKER_TLS_CERTDIR/server/ca.pem" "$DOCKER_CERT_PATH/ca.pem"
   fi
   
   # Wait for Docker daemon to be ready with TLS
@@ -123,6 +150,8 @@ variables:
   if [ $timeout -le 0 ]; then
     echo "Docker daemon failed to start within timeout"
     echo "Attempting to diagnose the issue..."
+    echo "Final certificate check:"
+    find "$DOCKER_TLS_CERTDIR" -name "*.pem" -exec ls -la {} \; 2>/dev/null || echo "No certificates found"
     echo "Docker info output:"
     docker info || echo "Docker info failed"
     echo "Docker version output:"

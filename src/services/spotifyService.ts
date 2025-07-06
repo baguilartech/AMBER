@@ -54,7 +54,6 @@ export class SpotifyService extends BaseMusicService {
       
       for (const track of tracks) {
         const artists = joinArtistNames(track.artists);
-        const searchQuery = `${track.name} ${artists}`;
         
         songs.push(this.createSong({
           title: track.name,

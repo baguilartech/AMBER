@@ -10,12 +10,15 @@ A self-hosted Discord music bot with multi-platform streaming support. Stream mu
 - 🔊 **Volume Control**: Adjustable volume levels
 - 🌐 **Self-Hosted**: Complete control over your bot instance
 - 📊 **Rich Embeds**: Beautiful song information displays
+- 🎯 **Slash Commands**: Modern Discord slash command interface
+- 🔄 **Auto-Disconnect**: Automatically leaves empty voice channels
+- 🎨 **TypeScript**: Full TypeScript support with strict typing
 
 ## Quick Start
 
 ### Prerequisites
 
-- Node.js 18+ (for local development)
+- Node.js 20.18.1+ (for local development)
 - Docker & Docker Compose (for containerized deployment)
 - Discord Bot Token
 - YouTube Data API v3 Key
@@ -30,12 +33,29 @@ cp .env.example .env
 
 2. Fill in your API credentials in `.env`:
 ```env
-DISCORD_TOKEN=your_discord_bot_token
-DISCORD_CLIENT_ID=your_discord_client_id
-YOUTUBE_API_KEY=your_youtube_api_key
-SPOTIFY_CLIENT_ID=your_spotify_client_id
-SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
-SOUNDCLOUD_CLIENT_ID=your_soundcloud_client_id  # Optional
+# Discord Bot Configuration
+DISCORD_TOKEN=your_discord_bot_token_here
+DISCORD_CLIENT_ID=your_discord_client_id_here
+
+# YouTube API Configuration
+YOUTUBE_API_KEY=your_youtube_api_key_here
+
+# Spotify API Configuration
+SPOTIFY_CLIENT_ID=your_spotify_client_id_here
+SPOTIFY_CLIENT_SECRET=your_spotify_client_secret_here
+
+# SoundCloud Configuration (Optional)
+SOUNDCLOUD_CLIENT_ID=your_soundcloud_client_id_here
+
+# Bot Configuration
+BOT_PREFIX=!
+MAX_QUEUE_SIZE=100
+DEFAULT_VOLUME=0.5
+AUTO_LEAVE_TIMEOUT=300000
+
+# Development
+NODE_ENV=production
+LOG_LEVEL=info
 ```
 
 ### Docker Deployment (Recommended)
@@ -122,6 +142,13 @@ npm run dev
 | `/volume <0-100>` | Set volume level |
 | `/nowplaying` | Show current song info |
 
+### Command Features
+
+- **Play Command**: Supports URLs from YouTube, Spotify, and SoundCloud
+- **Queue Management**: Automatic queue advancement and shuffle support
+- **Volume Control**: Real-time volume adjustment (0-100%)
+- **Rich Embeds**: Beautiful song information with thumbnails and metadata
+
 ## Configuration
 
 The bot can be configured through environment variables:
@@ -132,7 +159,8 @@ The bot can be configured through environment variables:
 | `MAX_QUEUE_SIZE` | `100` | Maximum songs in queue |
 | `DEFAULT_VOLUME` | `0.5` | Default volume (0.0-1.0) |
 | `AUTO_LEAVE_TIMEOUT` | `300000` | Auto-leave timeout (ms) |
-| `LOG_LEVEL` | `info` | Logging level |
+| `LOG_LEVEL` | `info` | Logging level (error, warn, info, debug) |
+| `NODE_ENV` | `production` | Environment mode |
 
 ## Docker Configuration
 
@@ -142,6 +170,7 @@ The included `docker-compose.yml` provides:
 - Volume persistence for data and logs
 - Automatic restart policy
 - Health checks
+- Non-root user security
 
 ### Customizing Docker Deployment
 
@@ -157,17 +186,59 @@ Edit `docker-compose.yml` to adjust:
 ```
 src/
 ├── commands/        # Slash commands
+│   ├── baseCommand.ts
+│   ├── play.ts
+│   ├── queue.ts
+│   ├── skip.ts
+│   ├── stop.ts
+│   ├── pause.ts
+│   ├── resume.ts
+│   ├── volume.ts
+│   └── nowplaying.ts
 ├── services/        # Core services
+│   ├── baseMusicService.ts
 │   ├── musicPlayer.ts
 │   ├── queueManager.ts
+│   ├── serviceFactory.ts
 │   ├── youtubeService.ts
 │   ├── spotifyService.ts
 │   └── soundcloudService.ts
 ├── utils/          # Utilities
+│   ├── commandRegistry.ts
 │   ├── config.ts
-│   └── logger.ts
+│   ├── errorHandler.ts
+│   ├── formatters.ts
+│   ├── logger.ts
+│   └── urlValidator.ts
 ├── types/          # TypeScript types
+│   └── index.ts
 └── index.ts        # Main bot file
+```
+
+## Development
+
+### Available Scripts
+
+- `npm run build` - Build the TypeScript project
+- `npm start` - Start the production bot
+- `npm run dev` - Start with hot reload for development
+- `npm test` - Run tests
+- `npm run test:watch` - Run tests in watch mode
+- `npm run test:coverage` - Run tests with coverage
+- `npm run lint` - Run ESLint
+- `npm run lint:fix` - Fix ESLint issues
+
+### Testing
+
+The project includes comprehensive tests for all components:
+- Command tests
+- Service tests
+- Utility tests
+- Type tests
+
+Run tests with:
+```bash
+npm test
 ```
 
 ## Troubleshooting
@@ -178,6 +249,7 @@ src/
 2. **No audio**: Ensure bot has voice channel permissions
 3. **API errors**: Verify API keys and quotas
 4. **Docker issues**: Check container logs with `docker-compose logs`
+5. **TypeScript errors**: Run `npm run build` to check for compilation issues
 
 ### Debug Mode
 
@@ -195,8 +267,9 @@ docker-compose ps
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+4. Test thoroughly with `npm test`
+5. Ensure code passes linting with `npm run lint`
+6. Submit a pull request
 
 ## License
 
@@ -209,6 +282,7 @@ For issues and questions:
 - Review Docker logs
 - Verify API credentials and permissions
 - Ensure all required environment variables are set
+- Check the test suite for usage examples
 
 ## Performance Notes
 
@@ -216,6 +290,7 @@ For issues and questions:
 - Queues are limited to prevent memory issues
 - Audio streams are optimized for quality and performance
 - Resource usage is monitored and limited in Docker
+- TypeScript compilation optimizes runtime performance
 
 ## Security
 
@@ -223,3 +298,5 @@ For issues and questions:
 - Docker container runs as non-root user
 - No sensitive data is logged
 - All external API calls are validated
+- Input validation on all user commands
+- Error handling prevents information leakage

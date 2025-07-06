@@ -40,7 +40,7 @@ export class PlayCommand extends BaseCommandClass {
     await interaction.deferReply();
 
     try {
-      let songs = await this.searchSongs(query, member.user.username);
+      const songs = await this.searchSongs(query, member.user.username);
       
       if (songs.length === 0) {
         await interaction.editReply('No songs found for your query.');

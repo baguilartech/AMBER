@@ -37,7 +37,6 @@ export abstract class BaseCommandClass implements BaseCommand {
     commandName: string
   ): Promise<void> {
     try {
-      const guildId = this.getGuildId(interaction);
       const result = operation();
       
       if (result) {

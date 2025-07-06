@@ -1,4 +1,4 @@
-import { Collection, SlashCommandBuilder, SlashCommandOptionsOnlyBuilder, ChatInputCommandInteraction, MessageFlags } from 'discord.js';
+import { Collection, SlashCommandBuilder, SlashCommandOptionsOnlyBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { logger } from './logger';
 
 export interface Command {

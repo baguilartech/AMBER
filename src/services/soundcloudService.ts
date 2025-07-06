@@ -108,7 +108,7 @@ export class SoundCloudService extends BaseMusicService {
   }
 
   private extractTrackId(url: string): string | null {
-    const match = url.match(/soundcloud\.com\/[^\/]+\/([^\/\?]+)/);
+    const match = url.match(/soundcloud\.com\/[^/]+\/([^/?]+)/);
     return match ? match[1] : null;
   }
 
