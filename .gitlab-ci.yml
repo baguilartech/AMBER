@@ -102,16 +102,21 @@ variables:
   
   # Wait for certificates to be generated in any location
   echo "Waiting for Docker TLS certificates to be generated..."
-  timeout=60
+  timeout=90
   while [ $timeout -gt 0 ]; do
     # Check if any certificates exist in the certs directory
     if find "$DOCKER_TLS_CERTDIR" -name "*.pem" 2>/dev/null | grep -q .; then
       echo "Docker TLS certificates found"
       break
     fi
+    # Also check if the Docker daemon is generating certificates
+    if [ -f "$DOCKER_TLS_CERTDIR/server/cert.pem" ] || [ -f "$DOCKER_TLS_CERTDIR/client/cert.pem" ]; then
+      echo "Docker TLS certificates found in subdirectories"
+      break
+    fi
     echo "Waiting for certificates... ($timeout seconds remaining)"
-    sleep 2
-    timeout=$((timeout - 2))
+    sleep 3
+    timeout=$((timeout - 3))
   done
   
   # Show all certificates found
@@ -127,35 +132,60 @@ variables:
   # Copy certificates from server to client directory if they don't exist in client
   echo "Ensuring client certificates are available..."
   
-  # Copy ca.pem
+  # Copy ca.pem (try multiple sources)
   if [ ! -f "$DOCKER_CERT_PATH/ca.pem" ]; then
+    echo "Looking for ca.pem certificate..."
     if [ -f "$DOCKER_TLS_CERTDIR/server/ca.pem" ]; then
-      echo "Copying ca.pem from server to client directory..."
+      echo "Copying ca.pem from server directory..."
       cp "$DOCKER_TLS_CERTDIR/server/ca.pem" "$DOCKER_CERT_PATH/ca.pem"
     elif [ -f "$DOCKER_TLS_CERTDIR/ca.pem" ]; then
-      echo "Copying ca.pem from root to client directory..."
+      echo "Copying ca.pem from root directory..."
       cp "$DOCKER_TLS_CERTDIR/ca.pem" "$DOCKER_CERT_PATH/ca.pem"
+    elif [ -f "$DOCKER_TLS_CERTDIR/client/ca.pem" ]; then
+      echo "ca.pem already in client directory, copying to ensure permissions..."
+      cp "$DOCKER_TLS_CERTDIR/client/ca.pem" "$DOCKER_CERT_PATH/ca.pem"
+    else
+      echo "WARNING: ca.pem not found in any expected location"
     fi
   fi
   
-  # Copy cert.pem
+  # Copy cert.pem (client certificate)
   if [ ! -f "$DOCKER_CERT_PATH/cert.pem" ]; then
+    echo "Looking for client cert.pem..."
     if [ -f "$DOCKER_TLS_CERTDIR/client/cert.pem" ]; then
-      echo "Client cert.pem already exists in correct location"
+      echo "Client cert.pem found in client directory"
+      cp "$DOCKER_TLS_CERTDIR/client/cert.pem" "$DOCKER_CERT_PATH/cert.pem"
     elif [ -f "$DOCKER_TLS_CERTDIR/server/cert.pem" ]; then
-      echo "Copying cert.pem from server to client directory..."
+      echo "Using server cert.pem as fallback for client..."
       cp "$DOCKER_TLS_CERTDIR/server/cert.pem" "$DOCKER_CERT_PATH/cert.pem"
+    else
+      echo "WARNING: cert.pem not found in any expected location"
     fi
   fi
   
-  # Copy key.pem
+  # Copy key.pem (client private key)
   if [ ! -f "$DOCKER_CERT_PATH/key.pem" ]; then
+    echo "Looking for client key.pem..."
     if [ -f "$DOCKER_TLS_CERTDIR/client/key.pem" ]; then
-      echo "Client key.pem already exists in correct location"
+      echo "Client key.pem found in client directory"
+      cp "$DOCKER_TLS_CERTDIR/client/key.pem" "$DOCKER_CERT_PATH/key.pem"
     elif [ -f "$DOCKER_TLS_CERTDIR/server/key.pem" ]; then
-      echo "Copying key.pem from server to client directory..."
+      echo "Using server key.pem as fallback for client..."
       cp "$DOCKER_TLS_CERTDIR/server/key.pem" "$DOCKER_CERT_PATH/key.pem"
+    else
+      echo "WARNING: key.pem not found in any expected location"
     fi
+  fi
+  
+  # Set proper permissions on certificates
+  if [ -f "$DOCKER_CERT_PATH/ca.pem" ]; then
+    chmod 644 "$DOCKER_CERT_PATH/ca.pem"
+  fi
+  if [ -f "$DOCKER_CERT_PATH/cert.pem" ]; then
+    chmod 644 "$DOCKER_CERT_PATH/cert.pem"
+  fi
+  if [ -f "$DOCKER_CERT_PATH/key.pem" ]; then
+    chmod 600 "$DOCKER_CERT_PATH/key.pem"
   fi
   
   # Final check of client directory
@@ -302,68 +332,19 @@ build_docker:
 code_quality:
   stage: test
   image: docker:26.1.4  # Use same version as build_docker for consistency
-  services:
-    - name: docker:26.1.4-dind
-      alias: docker
-  variables:
-    # Try without TLS first to test basic connectivity
-    DOCKER_TLS_CERTDIR: ""
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_DRIVER: overlay2
-    DOCKER_CLI_TIMEOUT: 300
-    COMPOSE_HTTP_TIMEOUT: 300
+  <<: *docker_tls_template
   before_script:
+    - *docker_tls_setup
     - |
-      # Install wget if not available
-      apk add --no-cache wget ca-certificates curl
-      
-      # Download and install CA certificate (if CA_CERT_URL is provided)
-      if [ -n "$CA_CERT_URL" ]; then
-        echo "Downloading CA certificate from $CA_CERT_URL..."
-        wget -q -O /usr/local/share/ca-certificates/custom-ca.crt "$CA_CERT_URL" || curl -k -o /usr/local/share/ca-certificates/custom-ca.crt "$CA_CERT_URL"
-        update-ca-certificates
-        
-        # Also add the CA certificate to Docker's certificate directory for the registry
-        mkdir -p "/etc/docker/certs.d/${CI_REGISTRY}"
-        cp /usr/local/share/ca-certificates/custom-ca.crt "/etc/docker/certs.d/${CI_REGISTRY}/ca.crt"
-        echo "CA certificate configured for registry: $CI_REGISTRY"
-      else
-        echo "No CA_CERT_URL provided, skipping custom CA certificate setup"
-      fi
-      
-      # Debug Docker setup (without TLS)
-      echo "Docker configuration (non-TLS):"
-      echo "DOCKER_HOST: $DOCKER_HOST"
-      echo "DOCKER_TLS_CERTDIR: $DOCKER_TLS_CERTDIR"
-      
-      # Wait for Docker daemon to be ready (non-TLS)
-      echo "Waiting for Docker daemon to be ready (non-TLS)..."
-      timeout=120
-      while [ $timeout -gt 0 ]; do
-        if docker version >/dev/null 2>&1; then
-          echo "Docker daemon is ready"
-          docker version
-          break
-        fi
-        echo "Waiting for Docker daemon... ($timeout seconds remaining)"
-        sleep 3
-        timeout=$((timeout - 3))
-      done
-      
-      if [ $timeout -le 0 ]; then
-        echo "Docker daemon failed to start within timeout"
-        echo "Attempting to diagnose the issue..."
-        echo "Docker info output:"
-        docker info || echo "Docker info failed"
-        echo "Docker version output:"
-        docker version || echo "Docker version failed"
-        exit 1
-      fi
+      # Additional setup for code quality tools if needed
+      echo "Docker TLS setup completed successfully"
+      docker version
+      docker info
   script:
     - |
       # Code quality analysis would go here
       # For now, just test Docker connectivity
-      echo "Testing Docker connectivity..."
+      echo "Testing Docker connectivity with TLS..."
       docker info
       echo "Code quality analysis placeholder - Docker is working!"
   allow_failure: true  # Allow failure since this is still being configured
