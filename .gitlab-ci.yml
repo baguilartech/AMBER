@@ -147,23 +147,13 @@ build-container:
     DOCKER_DRIVER: overlay2
   before_script:
     - |
-      # Download and install the CA certificate
-      wget -O /tmp/ca.crt "${CA_CERT_URL}"
-      mkdir -p /usr/local/share/ca-certificates/
-      cp /tmp/ca.crt /usr/local/share/ca-certificates/prodigal-studios-ca.crt
-      update-ca-certificates
-    - |
-      # Configure Docker to use the CA certificate
-      mkdir -p /etc/docker/certs.d/${GITLAB_HOST_FQDN}:5050
-      cp /tmp/ca.crt /etc/docker/certs.d/${GITLAB_HOST_FQDN}:5050/ca.crt
-    - |
       # Wait for Docker daemon to be ready
       until docker info >/dev/null 2>&1; do
         echo "Waiting for Docker daemon..."
         sleep 1
       done
     - echo "Logging into GitLab Container Registry..."
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
   script:
     - echo "Building Discord bot container image..."
     - docker build -t $CONTAINER_IMAGE:$CI_COMMIT_SHA -t $CONTAINER_IMAGE:latest .
@@ -191,16 +181,6 @@ code_quality:
     DOCKER_DRIVER: overlay2
     CODE_QUALITY_IMAGE: "registry.gitlab.com/gitlab-org/ci-cd/codequality:latest"
   before_script:
-    - |
-      # Download and install the CA certificate
-      wget -O /tmp/ca.crt "${CA_CERT_URL}"
-      mkdir -p /usr/local/share/ca-certificates/
-      cp /tmp/ca.crt /usr/local/share/ca-certificates/prodigal-studios-ca.crt
-      update-ca-certificates
-    - |
-      # Configure Docker to use the CA certificate
-      mkdir -p /etc/docker/certs.d/${GITLAB_HOST_FQDN}:5050
-      cp /tmp/ca.crt /etc/docker/certs.d/${GITLAB_HOST_FQDN}:5050/ca.crt
     - |
       # Wait for Docker daemon to be ready
       until docker info >/dev/null 2>&1; do

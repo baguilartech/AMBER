@@ -9,7 +9,9 @@
       "Bash(rm:*)",
       "Bash(docker-compose build:*)",
       "Bash(npm run build:*)",
-      "Bash(docker-compose up:*)"
+      "Bash(docker-compose up:*)",
+      "Bash(curl:*)",
+      "Bash(ansible:*)"
     ],
     "deny": []
   }
