@@ -119,6 +119,11 @@ sonar_scan:
   script: 
     - sonar-scanner -Dsonar.host.url="${SONAR_HOST_URL}"
   allow_failure: true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH == 'master'
+    - if: $CI_COMMIT_BRANCH == 'main'
+    - if: $CI_COMMIT_BRANCH == 'develop'
 
 # Pages for coverage reports
 pages:
@@ -169,38 +174,7 @@ build-container:
         - package*.json
         - src/**/*
 
-# Override code_quality job to handle CA certificate
-code_quality:
-  stage: test
-  image: docker:20.10.16
-  services:
-    - docker:20.10.16-dind
-  variables:
-    DOCKER_TLS_CERTDIR: ""
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_DRIVER: overlay2
-    CODE_QUALITY_IMAGE: "registry.gitlab.com/gitlab-org/ci-cd/codequality:latest"
-  before_script:
-    - |
-      # Wait for Docker daemon to be ready
-      until docker info >/dev/null 2>&1; do
-        echo "Waiting for Docker daemon..."
-        sleep 1
-      done
-  script:
-    - |
-      export SOURCE_CODE=${SOURCE_CODE:-$PWD}
-      docker pull --quiet "$CODE_QUALITY_IMAGE"
-      docker run --rm \
-        --env SOURCE_CODE="$SOURCE_CODE" \
-        --volume "$PWD":/code \
-        --volume /var/run/docker.sock:/var/run/docker.sock \
-        "$CODE_QUALITY_IMAGE" /code
-  artifacts:
-    reports:
-      codequality: gl-code-quality-report.json
-    expire_in: 1 week
-  allow_failure: true
+# Auto-DevOps will handle code_quality automatically
 
 # Include Auto-DevOps template - This does all the heavy lifting!
 include:
