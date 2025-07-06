@@ -35,12 +35,10 @@ updates:
         patterns:
           - "docker*"
           - "node*"
-    # Auto-merge minor and patch updates for dev dependencies
+    # Allow specific dependency types
     allow:
-      - dependency-type: "direct:development"
-        update-type: "version-update:semver-patch"
-      - dependency-type: "direct:development"
-        update-type: "version-update:semver-minor"
+      - dependency-type: "development"
+      - dependency-type: "production"
     
   # GitHub Actions updates
   - package-ecosystem: "github-actions"
