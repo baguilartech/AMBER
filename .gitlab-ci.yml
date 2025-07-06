@@ -157,6 +157,9 @@ build-container:
         mkdir -p /usr/local/share/ca-certificates/
         cp /etc/gitlab-runner/certs/ca.crt /usr/local/share/ca-certificates/gitlab-ca.crt
         update-ca-certificates
+        # Also configure Docker to use the certificate
+        mkdir -p /etc/docker/certs.d/${GITLAB_HOST_FQDN}:5050
+        cp /etc/gitlab-runner/certs/ca.crt /etc/docker/certs.d/${GITLAB_HOST_FQDN}:5050/ca.crt
       fi
     - |
       # Wait for Docker daemon to be ready
