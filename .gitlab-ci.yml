@@ -55,66 +55,28 @@ variables:
       - .npm/
     policy: pull-push
 
-# Docker TLS template
-.docker_tls_template: &docker_tls_template
-  services:
-    - name: docker:26.1.4-dind
-      alias: docker
-      command: ["--tls=true", "--tlsverify=false", "--host=tcp://0.0.0.0:2376"]
-  variables:
-    # Use TLS but without client verification to simplify connectivity
-    DOCKER_TLS_CERTDIR: "/certs"
-    DOCKER_HOST: tcp://docker:2376
-    DOCKER_TLS_VERIFY: 0  # Disable client cert verification for now
-    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
-    DOCKER_DRIVER: overlay2
-    # Add timeout settings
-    DOCKER_CLI_TIMEOUT: 300
-    COMPOSE_HTTP_TIMEOUT: 300
-
-# Common Docker TLS setup script
-.docker_tls_setup: &docker_tls_setup |
-  # Install required tools
-  apk add --no-cache wget ca-certificates curl netcat-openbsd
+# Simplified Docker configuration for DinD
+.docker_setup: &docker_setup |
+  # Install basic tools if not available
+  apk add --no-cache wget ca-certificates curl || echo "Tools already installed"
   
   # Download and install CA certificate (if CA_CERT_URL is provided)
   if [ -n "$CA_CERT_URL" ]; then
     echo "Downloading CA certificate from $CA_CERT_URL..."
     wget -q -O /usr/local/share/ca-certificates/custom-ca.crt "$CA_CERT_URL" || curl -k -o /usr/local/share/ca-certificates/custom-ca.crt "$CA_CERT_URL"
     update-ca-certificates
-    
-    # Also add the CA certificate to Docker's certificate directory for the registry
-    mkdir -p "/etc/docker/certs.d/${CI_REGISTRY}"
-    cp /usr/local/share/ca-certificates/custom-ca.crt "/etc/docker/certs.d/${CI_REGISTRY}/ca.crt"
-    echo "CA certificate configured for registry: $CI_REGISTRY"
+    echo "CA certificate configured"
   else
     echo "No CA_CERT_URL provided, skipping custom CA certificate setup"
   fi
   
-  # Debug Docker setup
-  echo "Docker configuration:"
-  echo "DOCKER_HOST: $DOCKER_HOST"
-  echo "DOCKER_TLS_VERIFY: $DOCKER_TLS_VERIFY"
-  echo "DOCKER_CERT_PATH: $DOCKER_CERT_PATH"
-  echo "DOCKER_TLS_CERTDIR: $DOCKER_TLS_CERTDIR"
-  
   # Wait for Docker daemon to be ready
-  echo "Waiting for Docker daemon to start..."
-  timeout=120
+  echo "Waiting for Docker daemon to be ready..."
+  timeout=60
   while [ $timeout -gt 0 ]; do
-    # Try to connect to Docker daemon
-    if docker version >/dev/null 2>&1; then
-      echo "Docker daemon is responding"
+    if docker info >/dev/null 2>&1; then
+      echo "Docker daemon is ready"
       break
-    fi
-    # Also try basic connectivity test
-    if nc -z docker 2376 2>/dev/null; then
-      echo "Docker port 2376 is reachable"
-      # Try Docker command again
-      if docker version >/dev/null 2>&1; then
-        echo "Docker daemon is responding after port check"
-        break
-      fi
     fi
     echo "Waiting for Docker daemon... ($timeout seconds remaining)"
     sleep 5
@@ -123,19 +85,8 @@ variables:
   
   if [ $timeout -le 0 ]; then
     echo "Docker daemon failed to start within timeout"
-    echo "Attempting diagnosis..."
-    echo "Network connectivity test:"
-    nc -z docker 2376 && echo "Port 2376 is reachable" || echo "Port 2376 is not reachable"
-    nc -z docker 2375 && echo "Port 2375 is reachable" || echo "Port 2375 is not reachable"
-    echo "Docker command output:"
-    docker version 2>&1 || echo "Docker command failed"
     exit 1
   fi
-  
-  # Verify Docker is working
-  echo "Testing Docker connection..."
-  docker version
-  echo "Docker connection successful!"
 
 # Build stage
 build:
@@ -220,7 +171,16 @@ security_scan:
 build_docker:
   stage: test  # Move to test stage so it runs after lint
   image: docker:26.1.4
-  <<: *docker_tls_template
+  services:
+    - name: docker:26.1.4-dind
+      alias: docker
+  variables:
+    # Simplified Docker setup without custom TLS
+    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+    DOCKER_DRIVER: overlay2
   needs:
     - job: build
       artifacts: true
@@ -228,7 +188,7 @@ build_docker:
   dependencies:
     - build
   before_script:
-    - *docker_tls_setup
+    - *docker_setup
     - |
       # Login to Docker registry
       echo "Logging into Docker registry: $CI_REGISTRY"
@@ -243,26 +203,46 @@ build_docker:
     - if: $CI_COMMIT_BRANCH == 'develop'
     - if: $CI_COMMIT_TAG
 
-# Override code_quality job from Auto-DevOps to fix Docker TLS issues
+# Override code_quality job from Auto-DevOps to disable Docker-in-Docker
 code_quality:
   stage: test
-  image: docker:26.1.4  # Use same version as build_docker for consistency
-  <<: *docker_tls_template
+  image: node:20  # Use Node.js image instead of Docker
+  services: []    # No services needed for basic code quality checks
+  needs:
+    - job: build
+      artifacts: true
+    - job: lint
+  dependencies:
+    - build
   before_script:
-    - *docker_tls_setup
-    - |
-      # Additional setup for code quality tools if needed
-      echo "Docker TLS setup completed successfully"
-      docker version
-      docker info
+    - ls -la  # Debug: check if artifacts are present
+    - ls -la node_modules/ || echo "node_modules not found"
   script:
     - |
-      # Code quality analysis would go here
-      # For now, just test Docker connectivity
-      echo "Testing Docker connectivity with TLS..."
-      docker info
-      echo "Code quality analysis placeholder - Docker is working!"
-  allow_failure: true  # Allow failure since this is still being configured
+      # Basic code quality checks without Docker
+      echo "Running basic code quality analysis..."
+      
+      # Check TypeScript compilation
+      echo "Checking TypeScript compilation..."
+      npm run build
+      
+      # Check for common code quality issues
+      echo "Analyzing code structure..."
+      find src -name "*.ts" | wc -l | xargs -I {} echo "Total TypeScript files: {}"
+      find src -name "*.ts" -exec wc -l {} + | tail -1 | awk '{print "Total lines of code: " $1}'
+      
+      # Check for potential security issues in code
+      echo "Checking for potential security issues..."
+      grep -r "console.log" src/ || echo "No console.log statements found"
+      grep -r "TODO" src/ || echo "No TODO items found"
+      grep -r "FIXME" src/ || echo "No FIXME items found"
+      
+      # Check dependencies for potential issues
+      echo "Checking dependency tree..."
+      npm ls --depth=0 || echo "Some dependency issues found"
+      
+      echo "Basic code quality analysis completed!"
+  allow_failure: true  # Allow failure since this is a basic implementation
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_COMMIT_BRANCH == 'master'
