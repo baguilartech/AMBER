@@ -160,12 +160,12 @@ build-container:
       echo "=== END DEBUG ==="
     - |
       # The trick from StackOverflow: copy CA cert and update certificates  
-      if [ -f "/etc/gitlab-runner/certs/{GITLAB_HOST_FQDN}.crt" ]; then
-        cp /etc/gitlab-runner/certs/{GITLAB_HOST_FQDN}.crt /usr/local/share/ca-certificates/gitlab.crt
+      if [ -f "/etc/gitlab-runner/certs/${GITLAB_HOST_FQDN}.crt" ]; then
+        cp /etc/gitlab-runner/certs/${GITLAB_HOST_FQDN}.crt /usr/local/share/ca-certificates/gitlab.crt
         update-ca-certificates
         # Also configure Docker daemon to use the certificate
         mkdir -p /etc/docker/certs.d/${GITLAB_HOST_FQDN}:5050
-        cp /etc/gitlab-runner/certs/{GITLAB_HOST_FQDN}.crt /etc/docker/certs.d/${GITLAB_HOST_FQDN}:5050/ca.crt
+        cp /etc/gitlab-runner/certs/${GITLAB_HOST_FQDN}.crt /etc/docker/certs.d/${GITLAB_HOST_FQDN}:5050/ca.crt
       elif [ -f "/etc/gitlab-runner/certs/ca.crt" ]; then
         cp /etc/gitlab-runner/certs/ca.crt /usr/local/share/ca-certificates/ca.crt
         update-ca-certificates
