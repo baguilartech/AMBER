@@ -52,16 +52,16 @@ jobs:
             
             ## Docker Image
             ```bash
-            docker pull ghcr.io/${{ github.repository }}:${{ steps.get_version.outputs.VERSION }}
-            docker pull ghcr.io/${{ github.repository }}:latest
+            docker pull ghcr.io/${{ github.repository_owner }}/amber:${{ steps.get_version.outputs.VERSION }}
+            docker pull ghcr.io/${{ github.repository_owner }}/amber:latest
             ```
           draft: false
           prerelease: false
           
       - name: Build Docker image
         run: |
-          docker build -t ghcr.io/${{ github.repository }}:${{ steps.get_version.outputs.VERSION }} .
-          docker build -t ghcr.io/${{ github.repository }}:latest .
+          docker build -t ghcr.io/${{ github.repository_owner }}/amber:${{ steps.get_version.outputs.VERSION }} .
+          docker build -t ghcr.io/${{ github.repository_owner }}/amber:latest .
           
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -72,8 +72,8 @@ jobs:
           
       - name: Push Docker images
         run: |
-          docker push ghcr.io/${{ github.repository }}:${{ steps.get_version.outputs.VERSION }}
-          docker push ghcr.io/${{ github.repository }}:latest
+          docker push ghcr.io/${{ github.repository_owner }}/amber:${{ steps.get_version.outputs.VERSION }}
+          docker push ghcr.io/${{ github.repository_owner }}/amber:latest
           
       - name: Publish NPM package to GitHub Packages
         run: npm publish
