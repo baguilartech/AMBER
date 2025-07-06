@@ -163,9 +163,15 @@ build-container:
       if [ -f "/etc/gitlab-runner/certs/gitlab.prodigalpros.com.crt" ]; then
         cp /etc/gitlab-runner/certs/gitlab.prodigalpros.com.crt /usr/local/share/ca-certificates/ca.crt
         update-ca-certificates
+        # Also configure Docker daemon to use the certificate
+        mkdir -p /etc/docker/certs.d/${GITLAB_HOST_FQDN}:5050
+        cp /etc/gitlab-runner/certs/gitlab.prodigalpros.com.crt /etc/docker/certs.d/${GITLAB_HOST_FQDN}:5050/ca.crt
       elif [ -f "/etc/gitlab-runner/certs/ca.crt" ]; then
         cp /etc/gitlab-runner/certs/ca.crt /usr/local/share/ca-certificates/ca.crt
         update-ca-certificates
+        # Also configure Docker daemon to use the certificate
+        mkdir -p /etc/docker/certs.d/${GITLAB_HOST_FQDN}:5050
+        cp /etc/gitlab-runner/certs/ca.crt /etc/docker/certs.d/${GITLAB_HOST_FQDN}:5050/ca.crt
       else
         echo "No certificate found to copy"
       fi
