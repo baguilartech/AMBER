@@ -273,6 +273,13 @@ publish-wiki:
     - apk add --no-cache git rsync
     - git config --global user.email "gitlab-ci@${CI_SERVER_HOST}"
     - git config --global user.name "GitLab CI"
+    - |
+      # Check if required variables are set
+      if [ -z "$WIKI_ACCESS_TOKEN" ]; then
+        echo "ERROR: WIKI_ACCESS_TOKEN is not set."
+        echo "Please set this variable in your GitLab project settings with a project access token that has 'write_repository' scope."
+        exit 1
+      fi
   script:
     - echo "Publishing wiki from repository..."
     - |
