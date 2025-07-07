@@ -3,8 +3,6 @@ name: Publish Wiki
 on:
   push:
     branches: [ main ]
-    paths:
-      - 'wiki/**'
   workflow_dispatch:
 
 jobs:
@@ -25,11 +23,20 @@ jobs:
       
       - name: Clone wiki repository
         run: |
-          git clone https://github.com/${{ github.repository }}.wiki.git wiki-repo
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git wiki-repo
+      
+      - name: Check for wiki changes
+        run: |
+          # Check if wiki directory exists and has content
+          if [ ! -d "wiki" ] || [ -z "$(ls -A wiki)" ]; then
+            echo "No wiki directory or content found, skipping wiki update"
+            echo "SKIP_WIKI=true" >> $GITHUB_ENV
+            exit 0
+          fi
+          echo "Wiki content found, proceeding with update"
       
       - name: Clear and update wiki content
+        if: env.SKIP_WIKI != 'true'
         run: |
           cd wiki-repo
           
@@ -44,8 +51,12 @@ jobs:
           git add . || true
       
       - name: Commit and push changes
+        if: env.SKIP_WIKI != 'true'
         run: |
           cd wiki-repo
+          
+          # Configure git remote with token
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git
           
           # Check if there are changes to commit
           if git diff --cached --quiet; then
@@ -57,8 +68,11 @@ jobs:
             git push origin master
             echo "Wiki updated successfully"
           fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Summary
-        run: echo "Wiki publishing completed"
+        run: |
+          if [ "$SKIP_WIKI" = "true" ]; then
+            echo "Wiki publishing skipped - no wiki content found"
+          else
+            echo "Wiki publishing completed"
+          fi
