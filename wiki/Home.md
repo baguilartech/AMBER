@@ -5,23 +5,23 @@ Welcome to the comprehensive documentation for Amber, a powerful self-hosted Dis
 ## 🚀 Quick Navigation
 
 ### 📚 Getting Started
-- [📦 Installation Guide](Getting-Started/Installation) - Set up Amber in minutes
-- [⚙️ Configuration](Getting-Started/Configuration) - Configure your bot settings
-- [🛠️ Troubleshooting](Getting-Started/Troubleshooting) - Common issues and solutions
+- [📦 Installation Guide](Installation) - Set up Amber in minutes
+- [⚙️ Configuration](Configuration) - Configure your bot settings
+- [🛠️ Troubleshooting](Troubleshooting) - Common issues and solutions
 
 ### 🎮 Using Amber
-- [🎵 Commands Reference](Using-AMBER/Commands) - Complete command documentation
+- [🎵 Commands Reference](Commands) - Complete command documentation
 
 ### 👩‍💻 Development
-- [🏗️ Architecture](Development/Architecture) - System design and patterns
-- [📖 Development Guide](Development/Guides/Developing) - Get started contributing
-- [🧪 Testing Guide](Development/Guides/Testing) - Testing strategies and best practices
-- [🚀 Release Guide](Development/Guides/Releasing) - Release management
+- [🏗️ Architecture](Architecture) - System design and patterns
+- [📖 Development Guide](Developing) - Get started contributing
+- [🧪 Testing Guide](Testing) - Testing strategies and best practices
+- [🚀 Release Guide](Releasing) - Release management
 
 ### 🛠️ How To Contribute
-- [🎼 Adding Music Services](Development/How-To-Contribute/Adding-Music-Services) - Integrate new streaming platforms
-- [⚡ Creating Commands](Development/How-To-Contribute/Creating-Commands) - Build new Discord commands
-- [🎮 Adding Features & Games](Development/How-To-Contribute/Adding-Features-and-Games) - Extend with new features
+- [🎼 Adding Music Services](Adding-Music-Services) - Integrate new streaming platforms
+- [⚡ Creating Commands](Creating-Commands) - Build new Discord commands
+- [🎮 Adding Features & Games](Adding-Features-and-Games) - Extend with new features
 
 ## ✨ What is Amber?
 
@@ -62,19 +62,19 @@ Amber is a **self-hosted Discord music bot** designed for reliability, extensibi
 ## 🎯 Quick Start Paths
 
 ### 🎵 **For Server Owners**
-1. **[Install Amber](Getting-Started/Installation)** - Get your bot running
-2. **[Configure Settings](Getting-Started/Configuration)** - Customize behavior
-3. **[Learn Commands](Using-AMBER/Commands)** - Master the interface
+1. **[Install Amber](Installation)** - Get your bot running
+2. **[Configure Settings](Configuration)** - Customize behavior
+3. **[Learn Commands](Commands)** - Master the interface
 
 ### 👩‍💻 **For Developers**
-1. **[Understand Architecture](Development/Architecture)** - Learn the system design
-2. **[Setup Development](Development/Guides/Developing)** - Get development environment ready
-3. **[Contribute Features](Development/How-To-Contribute/Adding-Features-and-Games)** - Add new functionality
+1. **[Understand Architecture](Architecture)** - Learn the system design
+2. **[Setup Development](Developing)** - Get development environment ready
+3. **[Contribute Features](Adding-Features-and-Games)** - Add new functionality
 
 ### 🎼 **For Contributors**
-1. **[Adding Music Services](Development/How-To-Contribute/Adding-Music-Services)** - Integrate new platforms
-2. **[Creating Commands](Development/How-To-Contribute/Creating-Commands)** - Build Discord commands
-3. **[Testing Guide](Development/Guides/Testing)** - Ensure quality contributions
+1. **[Adding Music Services](Adding-Music-Services)** - Integrate new platforms
+2. **[Creating Commands](Creating-Commands)** - Build Discord commands
+3. **[Testing Guide](Testing)** - Ensure quality contributions
 
 ## 📊 Project Statistics
 
@@ -108,7 +108,7 @@ Amber is a **self-hosted Discord music bot** designed for reliability, extensibi
 Start with our comprehensive guides organized by your role and needs.
 
 ### 🐛 **Issues & Bugs**
-- Check [Troubleshooting](Getting-Started/Troubleshooting) for common solutions
+- Check [Troubleshooting](Troubleshooting) for common solutions
 - Review logs for specific error messages
 - Report issues on our GitHub/GitLab repository
 
@@ -121,7 +121,7 @@ Start with our comprehensive guides organized by your role and needs.
 
 ## 📈 Contributing
 
-We welcome contributions! See our [development guides](Development/Guides/Developing) to get started.
+We welcome contributions! See our [development guides](Developing) to get started.
 
 **Latest Update**: This wiki is automatically synchronized with the main repository to ensure accuracy.
 

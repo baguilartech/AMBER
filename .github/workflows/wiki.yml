@@ -53,8 +53,22 @@ jobs:
           find . -type f ! -path "./.git/*" -delete
           find . -type d ! -path "./.git*" -empty -delete 2>/dev/null || true
           
-          # Copy new content from wiki directory
-          rsync -av --exclude='.git*' ${{ github.workspace }}/wiki/ ./
+          # Copy and flatten wiki files from subdirectories
+          # Copy Home.md and _Sidebar.md directly
+          if [ -f "${{ github.workspace }}/wiki/Home.md" ]; then
+            cp "${{ github.workspace }}/wiki/Home.md" ./Home.md
+          fi
+          if [ -f "${{ github.workspace }}/wiki/_Sidebar.md" ]; then
+            cp "${{ github.workspace }}/wiki/_Sidebar.md" ./_Sidebar.md
+          fi
+          
+          # Copy files from subdirectories with flattened names
+          find "${{ github.workspace }}/wiki" -name "*.md" ! -name "Home.md" ! -name "_Sidebar.md" -type f | while read file; do
+            # Get just the filename without path and extension
+            filename=$(basename "$file" .md)
+            # Copy with flattened name
+            cp "$file" "./${filename}.md"
+          done
           
           # Add all changes
           git add . || true
