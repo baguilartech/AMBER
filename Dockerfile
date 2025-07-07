@@ -1,4 +1,4 @@
-FROM node:20-bookworm-slim
+FROM node:24-bookworm-slim
 
 # Install ffmpeg with full codec support and other dependencies
 RUN apt-get update && apt-get install -y \
