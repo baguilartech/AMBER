@@ -260,3 +260,48 @@ canary:
 production:
   rules:
     - when: never
+
+# Wiki publishing job
+publish-wiki:
+  stage: deploy
+  image: alpine:latest
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - wiki/**/*
+  before_script:
+    - apk add --no-cache git rsync
+    - git config --global user.email "gitlab-ci@${CI_SERVER_HOST}"
+    - git config --global user.name "GitLab CI"
+  script:
+    - echo "Publishing wiki from repository..."
+    - |
+      # Clone the wiki repository
+      git clone https://project-token:${WIKI_ACCESS_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.wiki.git wiki-repo
+      
+      # Navigate to wiki repo
+      cd wiki-repo
+      
+      # Clear existing content (preserve .git directory)
+      find . -type f ! -path "./.git/*" -delete
+      find . -type d ! -path "./.git*" -empty -delete 2>/dev/null || true
+      
+      # Copy new content from wiki directory
+      rsync -av --exclude='.git*' ${CI_PROJECT_DIR}/wiki/ ./
+      
+      # Add all changes
+      git add . || true
+      
+      # Check if there are changes to commit
+      if git diff --cached --quiet; then
+        echo "No changes detected in wiki content"
+        exit 0
+      else
+        echo "Changes detected, committing wiki updates..."
+        git commit -m "Update wiki from ${CI_COMMIT_SHA:0:8} - ${CI_COMMIT_TITLE}"
+        git push origin main
+        echo "Wiki updated successfully"
+      fi
+  after_script:
+    - echo "Wiki publishing completed"
+  when: always

@@ -188,9 +188,11 @@ Edit `docker-compose.yml` to adjust:
 
 ## Architecture
 
+Amber follows a modular, layered architecture with clear separation of concerns:
+
 ```
 src/
-├── commands/        # Slash commands
+├── commands/        # Discord slash commands
 │   ├── baseCommand.ts      # Base command class with common functionality
 │   ├── play.ts            # Play music from URL or search
 │   ├── queue.ts           # Display and manage queue
@@ -200,7 +202,7 @@ src/
 │   ├── resume.ts          # Resume paused playback
 │   ├── volume.ts          # Adjust volume level
 │   └── nowplaying.ts      # Show current song info
-├── services/        # Core services
+├── services/        # Core music services
 │   ├── baseMusicService.ts    # Base service with common patterns
 │   ├── musicPlayer.ts         # Audio playback management
 │   ├── queueManager.ts        # Queue state management
@@ -208,17 +210,23 @@ src/
 │   ├── youtubeService.ts      # YouTube search and streaming
 │   ├── spotifyService.ts      # Spotify search integration
 │   └── soundcloudService.ts   # SoundCloud integration
-├── utils/          # Utilities
+├── utils/          # Shared utilities
 │   ├── commandRegistry.ts     # Command registration system
 │   ├── config.ts             # Configuration management
 │   ├── errorHandler.ts       # Centralized error handling
 │   ├── formatters.ts         # String and duration formatting
 │   ├── logger.ts             # Logging system
 │   └── urlValidator.ts       # URL validation and parsing
-├── types/          # TypeScript types
+├── types/          # TypeScript type definitions
 │   └── index.ts             # Shared type definitions
 └── index.ts        # Main bot entry point
 ```
+
+### Key Design Patterns
+- **Factory Pattern**: Service creation and management
+- **Template Method**: Base classes for commands and services
+- **Strategy Pattern**: Platform-specific music service implementations
+- **Dependency Injection**: Clean separation of concerns
 
 ## Development
 
@@ -275,12 +283,23 @@ docker-compose ps
 
 ## Contributing
 
+We welcome contributions! Please see our comprehensive [development documentation](wiki/) for detailed guides:
+
+### Quick Start for Contributors
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
 4. Test thoroughly with `npm test`
 5. Ensure code passes linting with `npm run lint`
 6. Submit a pull request
+
+### Development Resources
+- 📖 **[Development Guide](wiki/Development/Guides/Developing.md)** - Setup and development workflow
+- 🏗️ **[Architecture Overview](wiki/Development/Architecture.md)** - System design and patterns
+- 🎼 **[Adding Music Services](wiki/Development/How%20To%20Contribute/Adding%20Music%20Services.md)** - Integrate new platforms
+- ⚡ **[Creating Commands](wiki/Development/How%20To%20Contribute/Creating%20Commands.md)** - Build Discord commands
+- 🎮 **[Adding Features](wiki/Development/How%20To%20Contribute/Adding%20Features%20and%20Games.md)** - Extend functionality
+- 🧪 **[Testing Guide](wiki/Development/Guides/Testing.md)** - Testing strategies
 
 ## License
 

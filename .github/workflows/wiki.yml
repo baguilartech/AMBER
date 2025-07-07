@@ -1,0 +1,64 @@
+name: Publish Wiki
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'wiki/**'
+  workflow_dispatch:
+
+jobs:
+  publish-wiki:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+      
+      - name: Clone wiki repository
+        run: |
+          git clone https://github.com/${{ github.repository }}.wiki.git wiki-repo
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Clear and update wiki content
+        run: |
+          cd wiki-repo
+          
+          # Clear existing content (preserve .git directory)
+          find . -type f ! -path "./.git/*" -delete
+          find . -type d ! -path "./.git*" -empty -delete 2>/dev/null || true
+          
+          # Copy new content from wiki directory
+          rsync -av --exclude='.git*' ${{ github.workspace }}/wiki/ ./
+          
+          # Add all changes
+          git add . || true
+      
+      - name: Commit and push changes
+        run: |
+          cd wiki-repo
+          
+          # Check if there are changes to commit
+          if git diff --cached --quiet; then
+            echo "No changes detected in wiki content"
+            exit 0
+          else
+            echo "Changes detected, committing wiki updates..."
+            git commit -m "Update wiki from ${{ github.sha }} - ${{ github.event.head_commit.message }}"
+            git push origin master
+            echo "Wiki updated successfully"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Summary
+        run: echo "Wiki publishing completed"
