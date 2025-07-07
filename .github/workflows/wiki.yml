@@ -64,7 +64,9 @@ jobs:
             exit 0
           else
             echo "Changes detected, committing wiki updates..."
-            git commit -m "Update wiki from ${{ github.sha }} - ${{ github.event.head_commit.message }}"
+            # Use a safe commit message without potentially problematic characters
+            COMMIT_MSG="Update wiki from ${{ github.sha }}"
+            git commit -m "$COMMIT_MSG"
             git push origin master
             echo "Wiki updated successfully"
           fi
