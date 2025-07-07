@@ -16,8 +16,8 @@ export class YouTubeService extends BaseMusicService {
 
   async search(query: string): Promise<Song[]> {
     try {
-      // Increase results for better filtering, add order by relevance
-      const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&key=${this.apiKey}&maxResults=10&order=relevance&videoCategoryId=10`;
+      // Optimize for speed: fewer results but faster processing
+      const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&key=${this.apiKey}&maxResults=5&order=relevance&videoCategoryId=10`;
       
       const response = await fetch(searchUrl);
       const data = await response.json() as any;
@@ -32,7 +32,9 @@ export class YouTubeService extends BaseMusicService {
       // Sort results to prioritize official channels and better matches
       const sortedItems = this.sortYouTubeResults(data.items, query);
       
-      for (const item of sortedItems) {
+      // Process only the top 3 results for speed, get detailed info in parallel
+      const topItems = sortedItems.slice(0, 3);
+      const videoInfoPromises = topItems.map(async (item) => {
         const videoId = item.id?.videoId;
         const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
         
@@ -40,7 +42,7 @@ export class YouTubeService extends BaseMusicService {
           const videoInfo = await ytdl.getInfo(videoUrl);
           const videoDetails = videoInfo.videoDetails;
           
-          songs.push(this.createSong({
+          return this.createSong({
             title: videoDetails.title,
             artist: videoDetails.author.name,
             url: videoUrl,
@@ -48,10 +50,19 @@ export class YouTubeService extends BaseMusicService {
             thumbnail: videoDetails.thumbnails[0]?.url,
             requestedBy: '',
             platform: 'youtube'
-          }));
+          });
         } catch (error) {
           this.logServiceError(`getting video info for ${videoId}`, error as Error);
-          continue;
+          return null;
+        }
+      });
+      
+      const videoResults = await Promise.allSettled(videoInfoPromises);
+      
+      // Add successful results
+      for (const result of videoResults) {
+        if (result.status === 'fulfilled' && result.value) {
+          songs.push(result.value);
         }
       }
 
@@ -64,16 +75,37 @@ export class YouTubeService extends BaseMusicService {
 
   async getStreamUrl(song: Song): Promise<string> {
     try {
+      logger.info(`Getting stream info for: ${song.title} - ${song.url}`);
       const info = await ytdl.getInfo(song.url);
-      const format = ytdl.chooseFormat(info.formats, {
+      
+      logger.info(`Available formats: ${info.formats.length}`);
+      // Try to get the best audio format available
+      let format = ytdl.chooseFormat(info.formats, {
         quality: 'highestaudio',
         filter: 'audioonly'
       });
       
+      // Fallback to any audio-only format
       if (!format) {
+        format = ytdl.chooseFormat(info.formats, {
+          quality: 'highestaudio',
+          filter: 'audioonly'
+        });
+      }
+      
+      // Last resort: any audio format
+      if (!format) {
+        format = ytdl.chooseFormat(info.formats, {
+          quality: 'highestaudio'
+        });
+      }
+      
+      if (!format) {
+        logger.error(`No suitable audio format found for ${song.title}. Available formats: ${info.formats.map(f => `${f.itag}:${f.container}:${f.hasAudio}:${f.hasVideo}`).join(', ')}`);
         throw new Error('No suitable audio format found');
       }
       
+      logger.info(`Selected format for ${song.title}: ${format.itag} - ${format.container} - ${format.contentLength} bytes`);
       return format.url;
     } catch (error) {
       logger.error(`Error getting stream URL for ${song.title}:`, error);

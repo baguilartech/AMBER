@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { BaseQueueCommand } from './baseCommand';
 import { createQueueEmbed, formatVolume } from '../utils/formatters';
+import { logger } from '../utils/logger';
 
 export class QueueCommand extends BaseQueueCommand {
 
@@ -14,8 +15,11 @@ export class QueueCommand extends BaseQueueCommand {
     try {
       const guildId = this.getGuildId(interaction);
       const queue = this.queueManager.getQueue(guildId);
+      
+      logger.info(`Queue command executed by ${interaction.user.username} in guild ${guildId}`);
 
       if (queue.songs.length === 0) {
+        logger.info(`Queue is empty for guild ${guildId}`);
         await this.replyError(interaction, 'The queue is empty.');
         return;
       }
@@ -39,6 +43,7 @@ export class QueueCommand extends BaseQueueCommand {
           }
         ]);
 
+      logger.info(`Displayed queue with ${queue.songs.length} songs for guild ${guildId}`);
       await interaction.reply({ embeds: [embed] });
     } catch (error) {
       await this.handleError(interaction, error as Error, 'queue');

@@ -3,6 +3,7 @@ import { ErrorHandler } from '../utils/errorHandler';
 import { BaseCommand } from '../types';
 import { MusicPlayer } from '../services/musicPlayer';
 import { QueueManager } from '../services/queueManager';
+import { logger } from '../utils/logger';
 
 export abstract class BaseCommandClass implements BaseCommand {
   abstract get data(): SlashCommandBuilder;
@@ -36,12 +37,17 @@ export abstract class BaseCommandClass implements BaseCommand {
     errorMessage: string,
     commandName: string
   ): Promise<void> {
+    const guildId = this.getGuildId(interaction);
+    logger.info(`${commandName} command executed by ${interaction.user.username} in guild ${guildId}`);
+    
     try {
       const result = operation();
       
       if (result) {
+        logger.info(`${commandName} command successful in guild ${guildId}`);
         await this.replySuccess(interaction, successMessage);
       } else {
+        logger.info(`${commandName} command failed (no action taken) in guild ${guildId}`);
         await this.replyError(interaction, errorMessage);
       }
     } catch (error) {

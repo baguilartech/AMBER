@@ -29,7 +29,7 @@ export class CommandRegistry {
     return this.commands;
   }
 
-  getCommandData(): any[] {
+  getCommandData(): object[] {
     return Array.from(this.commands.values()).map(command => command.data.toJSON());
   }
 

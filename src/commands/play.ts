@@ -5,6 +5,7 @@ import { QueueManager } from '../services/queueManager';
 import { MusicPlayer } from '../services/musicPlayer';
 import { ServiceFactory } from '../services/serviceFactory';
 import { capitalizeFirst } from '../utils/formatters';
+import { logger } from '../utils/logger';
 
 export class PlayCommand extends BaseCommandClass {
   private queueManager: QueueManager;
@@ -31,6 +32,8 @@ export class PlayCommand extends BaseCommandClass {
     const query = interaction.options.getString('query', true);
     const member = interaction.member as GuildMember;
     const guildId = this.getGuildId(interaction);
+    
+    logger.info(`Play command executed by ${member.user.username} in guild ${guildId} with query: ${query}`);
 
     if (!member.voice.channel) {
       await this.replyError(interaction, 'You need to be in a voice channel to play music!');
@@ -43,6 +46,7 @@ export class PlayCommand extends BaseCommandClass {
       const songs = await this.searchSongs(query, member.user.username);
       
       if (songs.length === 0) {
+        logger.info(`No songs found for query: ${query}`);
         await interaction.editReply('No songs found for your query.');
         return;
       }
@@ -51,6 +55,7 @@ export class PlayCommand extends BaseCommandClass {
       const added = this.queueManager.addSong(guildId, song);
       
       if (!added) {
+        logger.info(`Queue full for guild ${guildId}, could not add song: ${song.title}`);
         await interaction.editReply('Queue is full! Please try again later.');
         return;
       }
@@ -67,11 +72,22 @@ export class PlayCommand extends BaseCommandClass {
         await this.musicPlayer.waitForConnection(connection);
         await this.musicPlayer.play(guildId, connection);
         
+        logger.info(`Started playing: ${song.title} by ${song.artist} in guild ${guildId}`);
         await interaction.editReply({
           content: `Now playing: **${song.title}** by **${song.artist}** (${capitalizeFirst(song.platform)})`
         });
       } else {
         const queuePosition = queue.songs.length;
+        logger.info(`Added to queue: ${song.title} by ${song.artist} at position ${queuePosition} in guild ${guildId}`);
+        
+        // Trigger prebuffering for newly added songs if something is already playing
+        if (queue.isPlaying) {
+          // Use a small delay to ensure this doesn't block the response
+          setTimeout(() => {
+            this.musicPlayer.triggerPrebuffering(guildId);
+          }, 100);
+        }
+        
         await interaction.editReply({
           content: `Added to queue: **${song.title}** by **${song.artist}** (Position: ${queuePosition})`
         });

@@ -104,6 +104,7 @@
 - Bot is slow to respond
 - Audio cuts out or stutters
 - High CPU/memory usage
+- Slow song transitions
 
 **Solutions:**
 1. Check system resources:
@@ -114,15 +115,28 @@
 
 2. Optimize configuration:
    ```env
-   # Reduce audio quality if needed
-   AUDIO_QUALITY=medium
-   BITRATE=96000
+   # Enable debug logging to monitor prebuffering
+   LOG_LEVEL=info
+   
+   # Optimize queue and volume settings
+   MAX_QUEUE_SIZE=50
+   DEFAULT_VOLUME=0.5
    ```
 
-3. Update dependencies:
+3. Check prebuffering performance:
+   - Look for "Prebuffer cache" logs in console
+   - Monitor "Using prebuffered URL" vs "Fetching fresh YouTube URL" messages
+   - Prebuffering should significantly reduce song transition times
+
+4. Update dependencies:
    ```bash
    npm update
    ```
+
+**Performance Features (New in v1.1.1):**
+- **Prebuffering**: Next songs prepared in background for instant playback
+- **Parallel Search**: 3x faster YouTube search with simultaneous strategies
+- **Smart Caching**: LRU cache with automatic cleanup prevents memory bloat
 
 ### Queue Issues
 

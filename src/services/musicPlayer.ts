@@ -4,23 +4,28 @@ import {
   createAudioPlayer, 
   createAudioResource, 
   entersState, 
+  StreamType,
   VoiceConnection, 
   VoiceConnectionStatus 
 } from '@discordjs/voice';
+import ytdl from '@distube/ytdl-core';
 import { Song } from '../types';
 import { logger } from '../utils/logger';
 import { QueueManager } from './queueManager';
 import { ServiceFactory } from './serviceFactory';
 import { ErrorHandler } from '../utils/errorHandler';
+import { PrebufferService } from './prebufferService';
 
 export class MusicPlayer {
   private players: Map<string, AudioPlayer> = new Map();
   private connections: Map<string, VoiceConnection> = new Map();
   private queueManager: QueueManager;
+  private prebufferService: PrebufferService;
   private skipInProgress: Map<string, boolean> = new Map();
 
   constructor(queueManager: QueueManager) {
     this.queueManager = queueManager;
+    this.prebufferService = new PrebufferService();
   }
 
   async play(guildId: string, connection: VoiceConnection): Promise<void> {
@@ -35,9 +40,44 @@ export class MusicPlayer {
       const player = this.getOrCreatePlayer(guildId);
       this.connections.set(guildId, connection);
       
-      const streamUrl = await this.getStreamUrl(currentSong);
-      const resource = createAudioResource(streamUrl, {
-        inlineVolume: true
+      logger.info(`Song platform: ${currentSong.platform}, URL: ${currentSong.url}`);
+      
+      let resource;
+      
+      if (currentSong.url.includes('youtube.com') || currentSong.url.includes('youtu.be')) {
+        // For YouTube, stream directly to avoid URL expiration issues
+        logger.info(`Creating direct stream for YouTube: ${currentSong.title}`);
+        const stream = ytdl(currentSong.url, {
+          filter: 'audioonly',
+          quality: 'highestaudio',
+          highWaterMark: 1 << 25
+        });
+        
+        resource = createAudioResource(stream, {
+          inlineVolume: true,
+          inputType: StreamType.Arbitrary
+        });
+      } else {
+        // For other platforms, use prebuffered URL or fetch fresh
+        const streamUrl = await this.prebufferService.getYouTubeUrl(currentSong, guildId);
+        logger.info(`Stream URL for ${currentSong.title}: ${streamUrl?.substring(0, 100)}...`);
+        
+        // Create stream directly from YouTube URL instead of passing URL string
+        const stream = ytdl(streamUrl, {
+          filter: 'audioonly',
+          quality: 'highestaudio',
+          highWaterMark: 1 << 25
+        });
+        
+        resource = createAudioResource(stream, {
+          inlineVolume: true,
+          inputType: StreamType.Arbitrary
+        });
+      }
+
+      // Add resource error handling
+      resource.playStream.on('error', (error) => {
+        logger.error(`Stream error for ${currentSong.title}:`, error);
       });
 
       const queue = this.queueManager.getQueue(guildId);
@@ -50,6 +90,9 @@ export class MusicPlayer {
       queue.isPaused = false;
 
       logger.info(`Now playing: ${currentSong.title} by ${currentSong.artist} in guild ${guildId}`);
+      
+      // Start prebuffering next songs in the background
+      this.startPrebuffering(guildId);
     } catch (error) {
       await ErrorHandler.handleVoiceError(guildId, error as Error);
       await this.skip(guildId);
@@ -79,7 +122,15 @@ export class MusicPlayer {
     if (nextSong) {
       const connection = this.connections.get(guildId);
       if (connection) {
-        await this.play(guildId, connection);
+        try {
+          await this.play(guildId, connection);
+        } catch (error) {
+          logger.error(`Error playing next song after skip in guild ${guildId}:`, error);
+          // Continue with next song or stop
+          await this.skip(guildId);
+        }
+      } else {
+        logger.error(`No voice connection found for guild ${guildId} during skip`);
       }
     } else {
       // No more songs - stop everything
@@ -114,7 +165,16 @@ export class MusicPlayer {
     if (prevSong) {
       const connection = this.connections.get(guildId);
       if (connection) {
-        await this.play(guildId, connection);
+        try {
+          await this.play(guildId, connection);
+        } catch (error) {
+          logger.error(`Error playing previous song in guild ${guildId}:`, error);
+          // Try to continue with current or next song
+          this.skipInProgress.delete(guildId);
+          return null;
+        }
+      } else {
+        logger.error(`No voice connection found for guild ${guildId} during previous`);
       }
     }
     
@@ -169,11 +229,20 @@ export class MusicPlayer {
     if (player && player.state.status === AudioPlayerStatus.Playing) {
       const resource = player.state.resource;
       if (resource.volume) {
-        resource.volume.setVolume(volume);
-        this.queueManager.setVolume(guildId, volume);
-        logger.info(`Set volume to ${volume} in guild ${guildId}`);
-        return true;
+        try {
+          resource.volume.setVolume(volume);
+          this.queueManager.setVolume(guildId, volume);
+          logger.info(`Set volume to ${volume} in guild ${guildId}`);
+          return true;
+        } catch (error) {
+          logger.error(`Error setting volume to ${volume} in guild ${guildId}:`, error);
+          return false;
+        }
+      } else {
+        logger.error(`No volume control available for player in guild ${guildId}`);
       }
+    } else {
+      logger.warn(`Cannot set volume in guild ${guildId}: player not playing (status: ${player?.state.status || 'no player'})`);
     }
     
     return false;
@@ -186,6 +255,9 @@ export class MusicPlayer {
     // Clear queue and stop player first to prevent idle handler interference
     this.queueManager.clear(guildId);
     this.skipInProgress.delete(guildId);
+    
+    // Clear prebuffer cache for this guild
+    this.prebufferService.clearGuildCache(guildId);
     
     if (player) {
       player.stop();
@@ -205,14 +277,17 @@ export class MusicPlayer {
       const player = createAudioPlayer();
       
       player.on('stateChange', (oldState, newState) => {
-        logger.debug(`Player state changed from ${oldState.status} to ${newState.status} in guild ${guildId}`);
+        logger.info(`Player state changed from ${oldState.status} to ${newState.status} in guild ${guildId}`);
+        if (newState.status === AudioPlayerStatus.Playing) {
+          logger.info(`Successfully started playing in guild ${guildId}`);
+        }
       });
       
       player.on(AudioPlayerStatus.Idle, async () => {
         const queue = this.queueManager.getQueue(guildId);
         const skipInProgress = this.skipInProgress.get(guildId) || false;
         
-        logger.debug(`Player idle - queue.isPlaying: ${queue.isPlaying}, songs: ${queue.songs.length}, skipInProgress: ${skipInProgress}`);
+        logger.info(`Player idle - queue.isPlaying: ${queue.isPlaying}, songs: ${queue.songs.length}, skipInProgress: ${skipInProgress}`);
         
         // Don't auto-advance if a skip is in progress
         if (queue.isPlaying && !skipInProgress) {
@@ -230,8 +305,10 @@ export class MusicPlayer {
         }
       });
       
-      player.on('error', (error) => {
+      player.on('error', async (error) => {
         logger.error(`Audio player error in guild ${guildId}:`, error);
+        // Try to skip to next song on error
+        await this.skip(guildId);
       });
       
       this.players.set(guildId, player);
@@ -257,5 +334,29 @@ export class MusicPlayer {
       logger.error('Failed to establish voice connection:', error);
       throw error;
     }
+  }
+
+  private startPrebuffering(guildId: string): void {
+    try {
+      const queue = this.queueManager.getQueue(guildId);
+      
+      // Start prebuffering next songs in background (don't await)
+      this.prebufferService.prebufferNextSongs(queue.songs, queue.currentIndex, guildId)
+        .catch(error => {
+          logger.error(`Error during prebuffering for guild ${guildId}:`, error);
+        });
+        
+      // Log cache stats periodically
+      const stats = this.prebufferService.getCacheStats();
+      if (stats.size > 0) {
+        logger.info(`Prebuffer cache: ${stats.prebuffered} ready, ${stats.inProgress} in progress, ${stats.size} total`);
+      }
+    } catch (error) {
+      logger.error(`Failed to start prebuffering for guild ${guildId}:`, error);
+    }
+  }
+
+  triggerPrebuffering(guildId: string): void {
+    this.startPrebuffering(guildId);
   }
 }

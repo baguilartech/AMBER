@@ -1,5 +1,3 @@
-import { botConfig } from './config';
-
 export enum LogLevel {
   ERROR = 0,
   WARN = 1,
@@ -11,7 +9,9 @@ class Logger {
   private logLevel: LogLevel;
 
   constructor() {
-    this.logLevel = this.getLogLevel(botConfig.logLevel);
+    // Read LOG_LEVEL directly from environment to avoid circular dependency with config
+    const envLogLevel = process.env.LOG_LEVEL || 'info';
+    this.logLevel = this.getLogLevel(envLogLevel);
   }
 
   private getLogLevel(level: string): LogLevel {

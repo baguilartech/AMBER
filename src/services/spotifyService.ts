@@ -76,31 +76,62 @@ export class SpotifyService extends BaseMusicService {
   async getStreamUrl(song: Song): Promise<string> {
     try {
       const youtubeService = ServiceFactory.getYouTubeService();
+      const primaryArtist = this.getPrimaryArtist(song.artist);
       
-      // Try quoted search first (most accurate)
-      let searchQuery = `"${song.title}" "${song.artist}"`;
-      let youtubeSongs = await youtubeService.search(searchQuery);
+      // Run multiple search strategies in parallel for speed
+      const searchPromises = [
+        // Strategy 1: Quoted search with primary artist (most accurate)
+        youtubeService.search(`"${song.title}" "${primaryArtist}"`),
+        // Strategy 2: Primary artist without quotes (fast fallback)
+        youtubeService.search(`${song.title} ${primaryArtist}`),
+        // Strategy 3: With "official" keyword (for official tracks)
+        youtubeService.search(`${song.title} ${primaryArtist} official`)
+      ];
       
-      // Fallback: try without quotes if no results
-      if (youtubeSongs.length === 0) {
-        logger.warn(`No results for quoted search, trying fallback for: ${song.title} by ${song.artist}`);
-        searchQuery = `${song.title} ${song.artist}`;
-        youtubeSongs = await youtubeService.search(searchQuery);
+      const startTime = Date.now();
+      // Add 8-second timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Search timeout')), 8000)
+      );
+      
+      const results = await Promise.race([
+        Promise.allSettled(searchPromises),
+        timeoutPromise
+      ]) as PromiseSettledResult<Song[]>[];
+      
+      const searchTime = Date.now() - startTime;
+      
+      // Find first successful result with songs
+      for (let i = 0; i < results.length; i++) {
+        if (results[i].status === 'fulfilled') {
+          const songs = (results[i] as PromiseFulfilledResult<Song[]>).value;
+          if (songs.length > 0) {
+            const bestMatch = songs[0];
+            logger.info(`YouTube search completed in ${searchTime}ms using strategy ${i + 1}. Selected: ${bestMatch.title} by ${bestMatch.artist}`);
+            return bestMatch.url;
+          }
+        }
       }
       
-      // Fallback: try with "official" added
-      if (youtubeSongs.length === 0) {
-        logger.warn(`No results for basic search, trying with "official" for: ${song.title} by ${song.artist}`);
-        searchQuery = `${song.title} ${song.artist} official`;
-        youtubeSongs = await youtubeService.search(searchQuery);
+      // Fallback: try full artist name if parallel searches failed
+      logger.info(`Parallel searches failed, trying fallback with full artist name`);
+      const fallbackSongs = await youtubeService.search(`${song.title} ${song.artist}`);
+      if (fallbackSongs.length > 0) {
+        const bestMatch = fallbackSongs[0];
+        logger.info(`Fallback search successful: ${bestMatch.title} by ${bestMatch.artist}`);
+        return bestMatch.url;
       }
       
-      if (youtubeSongs.length === 0) {
-        throw new Error(`No YouTube equivalent found for Spotify track: ${song.title} by ${song.artist}`);
+      // Last resort: title only
+      logger.info(`Fallback failed, trying title-only search`);
+      const titleOnlySongs = await youtubeService.search(song.title);
+      if (titleOnlySongs.length > 0) {
+        const bestMatch = titleOnlySongs[0];
+        logger.info(`Title-only search successful: ${bestMatch.title} by ${bestMatch.artist}`);
+        return bestMatch.url;
       }
       
-      const bestMatch = youtubeSongs[0];
-      return await youtubeService.getStreamUrl(bestMatch);
+      throw new Error(`No YouTube equivalent found for Spotify track: ${song.title} by ${song.artist}`);
     } catch (error) {
       logger.error(`Error getting stream URL for Spotify track ${song.title}:`, error);
       throw error;
@@ -199,5 +230,18 @@ export class SpotifyService extends BaseMusicService {
   private extractPlaylistId(url: string): string | null {
     const match = url.match(/playlist\/([a-zA-Z0-9]+)/);
     return match ? match[1] : null;
+  }
+
+  private getPrimaryArtist(artist: string): string {
+    // For multiple artists separated by commas, take the first one or two
+    const artists = artist.split(',').map(a => a.trim());
+    
+    // If there are multiple artists, prioritize the main ones
+    if (artists.length > 1) {
+      // Take first two artists max for better search results
+      return artists.slice(0, 2).join(', ');
+    }
+    
+    return artist;
   }
 }

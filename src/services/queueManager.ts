@@ -25,6 +25,11 @@ export class QueueManager {
       logger.warn(`Queue full for guild ${guildId}, cannot add song: ${song.title}`);
       return false;
     }
+    
+    if (!song.title || !song.artist) {
+      logger.error(`Invalid song data for guild ${guildId}: title=${song.title}, artist=${song.artist}`);
+      return false;
+    }
 
     queue.songs.push(song);
     
@@ -92,9 +97,10 @@ export class QueueManager {
     if (queue.songs.length > 0 && queue.currentIndex < queue.songs.length) {
       queue.songs.splice(queue.currentIndex, 1);
       
-      // If we're at the end, wrap to beginning
+      // If we're at the end or queue is empty, no more songs
       if (queue.currentIndex >= queue.songs.length) {
         queue.currentIndex = 0;
+        return null;
       }
       
       return this.getCurrentSong(guildId);
@@ -154,7 +160,13 @@ export class QueueManager {
 
   setVolume(guildId: string, volume: number): void {
     const queue = this.getQueue(guildId);
-    queue.volume = Math.max(0, Math.min(1, volume));
+    const clampedVolume = Math.max(0, Math.min(1, volume));
+    
+    if (clampedVolume !== volume) {
+      logger.warn(`Volume ${volume} clamped to ${clampedVolume} for guild ${guildId}`);
+    }
+    
+    queue.volume = clampedVolume;
     logger.info(`Set volume to ${queue.volume} for guild ${guildId}`);
   }
 

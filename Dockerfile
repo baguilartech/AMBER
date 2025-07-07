@@ -1,12 +1,17 @@
-FROM node:20-bullseye
+FROM node:20-bookworm-slim
 
-# Install ffmpeg and other dependencies
+# Install ffmpeg with full codec support and other dependencies
 RUN apt-get update && apt-get install -y \
     ffmpeg \
+    libavcodec-extra \
+    libopus0 \
+    libopus-dev \
     python3 \
     make \
     g++ \
-    && rm -rf /var/lib/apt/lists/*
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 # Create app directory
 WORKDIR /usr/src/app

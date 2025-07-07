@@ -108,8 +108,7 @@ npm run dev
 2. Create a new application
 3. Go to "Bot" section and create a bot
 4. Copy the token and client ID
-5. Enable required intents: Server Members Intent, Message Content Intent
-6. Generate invite link with permissions: `Send Messages`, `Use Slash Commands`, `Connect`, `Speak`
+5. Generate invite link with permissions: `Send Messages`, `Use Slash Commands`, `Connect`, `Speak`
 
 ### YouTube API Setup
 

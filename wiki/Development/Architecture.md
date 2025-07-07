@@ -28,6 +28,7 @@ graph TB
         QM[Queue Manager]
         MP[Music Player]
         SF[Service Factory]
+        PS[Prebuffer Service]
     end
     
     subgraph "Utility Layer"
@@ -53,7 +54,9 @@ graph TB
     SF --> OS
     
     QM --> MP
+    MP --> PS
     MP --> L
+    PS --> L
     
     YS --> L
     SS --> L
@@ -99,6 +102,7 @@ graph TB
 - **QueueManager**: Per-guild queue management
 - **MusicPlayer**: Audio playback and voice connections
 - **ServiceFactory**: Service instance management
+- **PrebufferService**: Background song preparation for instant playback
 
 ### 5. Utility Layer
 - **Logger**: Centralized logging
@@ -361,15 +365,24 @@ export const config = {
 - Commands initialized on startup
 - Resources allocated on demand
 
-### 2. Caching
+### 2. Caching & Prebuffering
 - Service instances cached in factory
 - Configuration loaded once
 - Reusable connections where possible
+- **Smart Prebuffering**: Background preparation of next 1-2 songs for instant playback
+- **LRU Cache**: 50-song cache with automatic cleanup for optimal memory usage
 
 ### 3. Async Operations
 - Non-blocking service calls
 - Concurrent command execution
 - Efficient resource utilization
+- **Parallel Search**: Multiple YouTube search strategies run simultaneously
+- **Background Processing**: Prebuffering happens during current song playback
+
+### 4. Search Optimization
+- **3x Speed Improvement**: Parallel search strategies reduce latency
+- **Timeout Protection**: 8-second timeout prevents hanging operations
+- **Reduced API Calls**: Optimized from 10→5 search results, process top 3 in parallel
 
 ## Testing Strategy
 

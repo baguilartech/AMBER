@@ -1,5 +1,6 @@
 import { config } from 'dotenv';
 import { BotConfig, APIKeys } from '../types';
+import { logger } from './logger';
 
 config();
 
@@ -40,6 +41,9 @@ export function validateConfig(): void {
   const missing = requiredEnvVars.filter(varName => !process.env[varName]);
   
   if (missing.length > 0) {
+    logger.error(`Missing required environment variables: ${missing.join(', ')}`);
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
+  
+  logger.info('Configuration validation successful');
 }

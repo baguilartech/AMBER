@@ -4,11 +4,11 @@
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20+ (latest LTS recommended)
 - npm or yarn
 - Git
-- PostgreSQL (for testing)
 - Discord Bot Token (for testing)
+- Music Service API Keys (YouTube, Spotify, SoundCloud optional)
 
 ### Development Setup
 
@@ -100,6 +100,7 @@ graph TD
     B2 --> B2d[youtubeService.ts]
     B2 --> B2e[spotifyService.ts]
     B2 --> B2f[soundcloudService.ts]
+    B2 --> B2g[prebufferService.ts]
     
     B3 --> B3a[index.ts]
     
