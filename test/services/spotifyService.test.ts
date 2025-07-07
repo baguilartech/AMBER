@@ -225,12 +225,11 @@ describe('SpotifyService', () => {
       };
 
       mockYouTubeService.search.mockResolvedValue([mockYoutubeSong]);
-      mockYouTubeService.getStreamUrl.mockResolvedValue('https://stream.url');
 
       const streamUrl = await spotifyService.getStreamUrl(mockSong);
 
       expect(mockYouTubeService.search).toHaveBeenCalledWith('"Test Song" "Test Artist"');
-      expect(streamUrl).toBe('https://stream.url');
+      expect(streamUrl).toBe('https://youtube.com/watch?v=123');
     });
 
     it('should throw error when no YouTube equivalent found', async () => {

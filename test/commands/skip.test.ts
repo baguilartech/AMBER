@@ -30,6 +30,9 @@ describe('SkipCommand', () => {
     // Mock Discord interaction
     mockInteraction = {
       guildId: 'guild-123',
+      user: {
+        username: 'testuser'
+      },
       deferReply: jest.fn().mockResolvedValue(undefined),
       editReply: jest.fn().mockResolvedValue(undefined)
     };

@@ -20,6 +20,9 @@ describe('VolumeCommand', () => {
     // Mock Discord interaction
     mockInteraction = {
       guildId: 'guild-123',
+      user: {
+        username: 'testuser'
+      },
       options: {
         getInteger: jest.fn()
       },

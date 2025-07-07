@@ -16,6 +16,9 @@ describe('QueueCommand', () => {
 
     mockInteraction = {
       guildId: 'test-guild',
+      user: {
+        username: 'testuser'
+      },
       reply: jest.fn()
     } as any;
 

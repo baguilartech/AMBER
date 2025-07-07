@@ -56,6 +56,9 @@ describe('BaseCommandClass', () => {
   beforeEach(() => {
     mockInteraction = {
       guildId: 'test-guild-id',
+      user: {
+        username: 'testuser'
+      },
       reply: jest.fn().mockResolvedValue(undefined)
     } as any;
 

@@ -39,6 +39,9 @@ describe('NowPlayingCommand', () => {
     // Mock Discord interaction
     mockInteraction = {
       guildId: 'guild-123',
+      user: {
+        username: 'testuser'
+      },
       reply: jest.fn().mockResolvedValue(undefined)
     };
 

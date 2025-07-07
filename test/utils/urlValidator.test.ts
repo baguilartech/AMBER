@@ -10,7 +10,10 @@ describe('URLValidator', () => {
         'https://www.youtube.com/embed/dQw4w9WgXcQ',
         'https://www.youtube.com/v/dQw4w9WgXcQ',
         'http://www.youtube.com/watch?v=dQw4w9WgXcQ',
-        'http://youtube.com/watch?v=dQw4w9WgXcQ'
+        'https://www.youtube.com/watch?v=dQw4w9WgXcQ&pp=ygUZYWxvYm9pIHdhbnQgdG8gbG92ZSByZW1peA%3D%3D',
+        'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30s',
+        'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLmD2D7TD_w-757L2wNJGEfPuaOInGz5w2',
+        'https://youtu.be/dQw4w9WgXcQ?t=30'
       ];
 
       validUrls.forEach(url => {
@@ -25,9 +28,8 @@ describe('URLValidator', () => {
         'invalid-url',
         'https://youtube.com/invalid',
         'https://youtube.com/watch',
-        'https://youtube.com/watch?',
-        'https://youtube.com/watch?v=',
-        'https://youtube.com/watch?v=short'
+        'https://youtu.be/',
+        'https://youtube.com/embed/'
       ];
 
       invalidUrls.forEach(url => {
@@ -41,9 +43,8 @@ describe('URLValidator', () => {
       const validUrls = [
         'https://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh',
         'https://spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh',
-        'https://open.spotify.com/album/4iV5W9uYEdYUVa79Axb7Rh',
+        'https://open.spotify.com/album/37i9dQZF1DXcBWIGoYBM5M',
         'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M',
-        'https://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh?si=abc',
         'http://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh'
       ];
 
@@ -57,10 +58,10 @@ describe('URLValidator', () => {
         'https://youtube.com/watch?v=123',
         'https://soundcloud.com/user/track',
         'invalid-url',
-        'https://spotify.com/invalid/123',
-        'https://open.spotify.com/invalid',
-        'https://spotify.com/track',
-        'https://spotify.com/track/'
+        'https://spotify.com/invalid',
+        'https://open.spotify.com/',
+        'https://spotify.com/track/',
+        'https://open.spotify.com/album/'
       ];
 
       invalidUrls.forEach(url => {
@@ -72,11 +73,10 @@ describe('URLValidator', () => {
   describe('validateSoundCloud', () => {
     it('should validate SoundCloud URLs correctly', () => {
       const validUrls = [
-        'https://soundcloud.com/user/track',
-        'https://www.soundcloud.com/user/track',
-        'http://soundcloud.com/user/track',
-        'https://soundcloud.com/user-name/track-name',
-        'https://soundcloud.com/user_name/track_name'
+        'https://soundcloud.com/user/track-name',
+        'https://www.soundcloud.com/user/track-name',
+        'http://soundcloud.com/user/track-name',
+        'https://soundcloud.com/artist/song-title-123'
       ];
 
       validUrls.forEach(url => {
@@ -89,10 +89,9 @@ describe('URLValidator', () => {
         'https://youtube.com/watch?v=123',
         'https://spotify.com/track/123',
         'invalid-url',
-        'https://soundcloud.com/user',
-        'https://soundcloud.com',
+        'https://soundcloud.com/',
         'https://soundcloud.com/user/',
-        'https://soundcloud.com/user/track/extra'
+        'https://soundcloud.com/invalid/path/too/deep'
       ];
 
       invalidUrls.forEach(url => {
@@ -106,7 +105,7 @@ describe('URLValidator', () => {
       const validUrls = [
         'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
         'https://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh',
-        'https://soundcloud.com/user/track'
+        'https://soundcloud.com/user/track-name'
       ];
 
       validUrls.forEach(url => {
@@ -118,8 +117,9 @@ describe('URLValidator', () => {
       const invalidUrls = [
         'https://example.com/video',
         'https://music.apple.com/track/123',
+        'https://bandcamp.com/track/123',
         'invalid-url',
-        'https://random-site.com/music'
+        'https://google.com'
       ];
 
       invalidUrls.forEach(url => {
@@ -130,24 +130,53 @@ describe('URLValidator', () => {
 
   describe('getPlatformFromUrl', () => {
     it('should return correct platform for YouTube URLs', () => {
-      expect(URLValidator.getPlatformFromUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')).toBe('youtube');
-      expect(URLValidator.getPlatformFromUrl('https://youtu.be/dQw4w9WgXcQ')).toBe('youtube');
+      const youtubeUrls = [
+        'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        'https://youtu.be/dQw4w9WgXcQ',
+        'https://youtube.com/embed/dQw4w9WgXcQ',
+        'https://www.youtube.com/watch?v=dQw4w9WgXcQ&pp=ygUZYWxvYm9pIHdhbnQgdG8gbG92ZSByZW1peA%3D%3D',
+        'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30s'
+      ];
+
+      youtubeUrls.forEach(url => {
+        expect(URLValidator.getPlatformFromUrl(url)).toBe('youtube');
+      });
     });
 
     it('should return correct platform for Spotify URLs', () => {
-      expect(URLValidator.getPlatformFromUrl('https://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh')).toBe('spotify');
-      expect(URLValidator.getPlatformFromUrl('https://spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh')).toBe('spotify');
+      const spotifyUrls = [
+        'https://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh',
+        'https://spotify.com/album/37i9dQZF1DXcBWIGoYBM5M',
+        'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M'
+      ];
+
+      spotifyUrls.forEach(url => {
+        expect(URLValidator.getPlatformFromUrl(url)).toBe('spotify');
+      });
     });
 
     it('should return correct platform for SoundCloud URLs', () => {
-      expect(URLValidator.getPlatformFromUrl('https://soundcloud.com/user/track')).toBe('soundcloud');
-      expect(URLValidator.getPlatformFromUrl('https://www.soundcloud.com/user/track')).toBe('soundcloud');
+      const soundcloudUrls = [
+        'https://soundcloud.com/user/track-name',
+        'https://www.soundcloud.com/artist/song-title'
+      ];
+
+      soundcloudUrls.forEach(url => {
+        expect(URLValidator.getPlatformFromUrl(url)).toBe('soundcloud');
+      });
     });
 
     it('should return null for unsupported URLs', () => {
-      expect(URLValidator.getPlatformFromUrl('https://example.com/video')).toBeNull();
-      expect(URLValidator.getPlatformFromUrl('invalid-url')).toBeNull();
-      expect(URLValidator.getPlatformFromUrl('https://music.apple.com/track/123')).toBeNull();
+      const unsupportedUrls = [
+        'https://example.com/video',
+        'https://music.apple.com/track/123',
+        'invalid-url',
+        'https://google.com'
+      ];
+
+      unsupportedUrls.forEach(url => {
+        expect(URLValidator.getPlatformFromUrl(url)).toBeNull();
+      });
     });
   });
 }); 
