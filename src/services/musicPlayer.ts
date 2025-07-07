@@ -59,24 +59,30 @@ export class MusicPlayer {
     const player = this.players.get(guildId);
     const queue = this.queueManager.getQueue(guildId);
     
+    logger.debug(`Skip called - queue.isPlaying: ${queue.isPlaying}, songs: ${queue.songs.length}`);
+    
     // Validate that there's something to skip
     if (!queue.isPlaying || queue.songs.length === 0) {
+      logger.debug(`Skip validation failed - nothing to skip`);
       return null;
     }
     
-    // Stop current playback first to avoid race conditions
-    if (player) {
-      player.stop();
-    }
-    
     const nextSong = this.queueManager.skip(guildId);
+    logger.debug(`After queue.skip - nextSong: ${nextSong ? nextSong.title : 'null'}`);
     
     if (nextSong) {
+      // Stop current playback first to avoid race conditions
+      if (player) {
+        player.stop();
+      }
+      
       const connection = this.connections.get(guildId);
       if (connection) {
         await this.play(guildId, connection);
       }
     } else {
+      // No more songs - stop everything
+      logger.debug(`No more songs - calling stop()`);
       this.stop(guildId);
     }
     
@@ -133,12 +139,13 @@ export class MusicPlayer {
 
   stop(guildId: string): void {
     const player = this.players.get(guildId);
-    const queue = this.queueManager.getQueue(guildId);
+    
+    logger.debug(`Stop called - player exists: ${!!player}`);
     
     if (player) {
+      // Clear queue first to prevent race conditions with idle handler
+      this.queueManager.clear(guildId);
       player.stop();
-      queue.isPlaying = false;
-      queue.isPaused = false;
       logger.info(`Stopped playback in guild ${guildId}`);
     }
   }
@@ -187,6 +194,7 @@ export class MusicPlayer {
       
       player.on(AudioPlayerStatus.Idle, async () => {
         const queue = this.queueManager.getQueue(guildId);
+        logger.debug(`Player idle - queue.isPlaying: ${queue.isPlaying}, songs: ${queue.songs.length}`);
         if (queue.isPlaying) {
           // Remove finished song and advance to next
           const nextSong = this.queueManager.advance(guildId);

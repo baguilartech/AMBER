@@ -9,6 +9,7 @@ stages:
 - build-sonar
 - build
 - test
+- security
 - deploy
 - review
 - dast
@@ -185,6 +186,22 @@ build-container:
         - package*.json
         - src/**/*
 
+# Container Security Scanning
+container_scanning:
+  stage: security
+  variables:
+    CS_IMAGE: "${CI_REGISTRY_IMAGE}/discord-bot:${CI_COMMIT_SHA}"
+    CS_DISABLE_DEPENDENCY_LIST: "true"
+  dependencies:
+    - build-container
+  needs:
+    - build-container
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'main'
+    - if: $CI_COMMIT_BRANCH == 'develop'
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+  allow_failure: true
+
 # Auto-DevOps will handle code_quality automatically
 
 # Release job for tagged versions
@@ -301,6 +318,7 @@ publish-wiki:
 # Include Auto-DevOps template - This does all the heavy lifting!
 include:
   - template: Auto-DevOps.gitlab-ci.yml
+  - template: Security/Container-Scanning.gitlab-ci.yml
 
 # Disable Auto-DevOps jobs we don't want
 staging:
