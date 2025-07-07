@@ -23,16 +23,16 @@ jobs:
       
       - name: Check Wiki Token
         run: |
-          if [ -z "${{ secrets.GITHUB_WIKI_TOKEN }}" ]; then
-            echo "❌ ERROR: GITHUB_WIKI_TOKEN secret is not set!"
-            echo "Please create a Personal Access Token with 'repo' scope and add it as a repository secret named 'GITHUB_WIKI_TOKEN'"
+          if [ -z "${{ secrets.WIKI_TOKEN_GITHUB }}" ]; then
+            echo "❌ ERROR: WIKI_TOKEN_GITHUB secret is not set!"
+            echo "Please create a Personal Access Token with 'repo' scope and add it as a repository secret named 'WIKI_TOKEN_GITHUB'"
             exit 1
           fi
           echo "✅ Wiki token is configured"
       
       - name: Clone wiki repository
         run: |
-          git clone https://x-access-token:${{ secrets.GITHUB_WIKI_TOKEN }}@github.com/${{ github.repository }}.wiki.git wiki-repo
+          git clone https://x-access-token:${{ secrets.WIKI_TOKEN_GITHUB }}@github.com/${{ github.repository }}.wiki.git wiki-repo
       
       - name: Check for wiki changes
         run: |
@@ -65,7 +65,7 @@ jobs:
           cd wiki-repo
           
           # Configure git remote with token
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_WIKI_TOKEN }}@github.com/${{ github.repository }}.wiki.git
+          git remote set-url origin https://x-access-token:${{ secrets.WIKI_TOKEN_GITHUB }}@github.com/${{ github.repository }}.wiki.git
           
           # Check if there are changes to commit
           if git diff --cached --quiet; then
