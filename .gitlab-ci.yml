@@ -104,6 +104,10 @@ lint:
 sonar_scan:
   stage: test
   image: sonarsource/sonar-scanner-cli:11
+  needs:
+    - test
+  dependencies:
+    - test
   cache:
     policy: pull-push
     key: "sonar-cache-$CI_COMMIT_REF_SLUG"
@@ -244,31 +248,12 @@ release-container:
   rules:
     - if: $CI_COMMIT_TAG
 
-# Include Auto-DevOps template - This does all the heavy lifting!
-include:
-  - template: Auto-DevOps.gitlab-ci.yml
-
-# Disable Auto-DevOps jobs we don't want
-staging:
-  rules:
-    - when: never
-
-canary:
-  rules:
-    - when: never
-
-production:
-  rules:
-    - when: never
-
 # Wiki publishing job
 publish-wiki:
   stage: deploy
   image: alpine:latest
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      changes:
-        - wiki/**/*
   before_script:
     - apk add --no-cache git rsync
     - git config --global user.email "gitlab-ci@${CI_SERVER_HOST}"
@@ -312,3 +297,20 @@ publish-wiki:
   after_script:
     - echo "Wiki publishing completed"
   when: always
+
+# Include Auto-DevOps template - This does all the heavy lifting!
+include:
+  - template: Auto-DevOps.gitlab-ci.yml
+
+# Disable Auto-DevOps jobs we don't want
+staging:
+  rules:
+    - when: never
+
+canary:
+  rules:
+    - when: never
+
+production:
+  rules:
+    - when: never
