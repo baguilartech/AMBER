@@ -2,6 +2,49 @@
 
 All notable changes to the Amber Discord Music Bot project are documented in this file.
 
+## [1.1.1] - 2025-07-07
+
+### 🔧 Infrastructure & Documentation Updates
+
+#### **Wiki & Documentation Enhancements**
+- **Wiki Integration**: Added comprehensive GitHub Wiki with automated synchronization
+- **Documentation Structure**: Organized documentation into development guides and user manuals
+- **Issue Templates**: Added GitHub issue templates for better bug reports and feature requests
+- **Release Guidelines**: Added structured release process documentation
+
+#### **CI/CD Pipeline Improvements**
+- **Docker Infrastructure**: Enhanced CI pipeline with improved Docker build processes
+- **Artifact Consolidation**: Streamlined CI artifacts for better deployment efficiency
+- **GitHub Packages**: Fixed scoped package naming for GitHub Packages registry
+- **Docker Registry**: Resolved Docker registry naming conventions for lowercase compliance
+- **Sonar Integration**: Updated SonarQube configuration for enhanced code quality scanning
+
+#### **Package Management**
+- **Scoped Packages**: Updated package configuration to use proper GitHub Packages scoping
+- **Registry Configuration**: Fixed package registry configuration for automated publishing
+- **Version Synchronization**: Ensured consistent version tagging across all project files
+
+### 🐛 Bug Fixes
+
+- **Package Naming**: Fixed GitHub Packages scope configuration for proper package publishing
+- **Docker Registry**: Resolved Docker registry naming issues with lowercase requirements
+- **CI Pipeline**: Fixed broken variable replacement in GitHub wiki push workflows
+- **Documentation**: Fixed various documentation formatting and linking issues
+
+### 🔧 Technical Improvements
+
+- **Code Quality**: Addressed SonarQube findings for better code maintainability
+- **Build Process**: Enhanced build pipeline with better error handling and reporting
+- **Configuration**: Improved project configuration files for better development experience
+
+### 🚀 Development Experience
+
+- **Wiki Automation**: Automated wiki updates with CI/CD integration
+- **Issue Management**: Enhanced issue tracking with structured templates
+- **Release Process**: Streamlined release workflows with proper version management
+
+---
+
 ## [1.1.0] - 2025-07-06
 
 ### 🔧 Security & Dependency Updates

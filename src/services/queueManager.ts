@@ -70,13 +70,13 @@ export class QueueManager {
   skip(guildId: string): Song | null {
     const queue = this.getQueue(guildId);
     
-    // Remove the current song and advance to the next (consistent with advance method)
-    if (queue.songs.length > 0 && queue.currentIndex < queue.songs.length) {
-      queue.songs.splice(queue.currentIndex, 1);
+    // Move to next song without removing current
+    if (queue.songs.length > 0) {
+      queue.currentIndex++;
       
-      // If we're at the end, wrap to beginning
+      // If we're at the end, return null (no more songs)
       if (queue.currentIndex >= queue.songs.length) {
-        queue.currentIndex = 0;
+        return null;
       }
       
       return this.getCurrentSong(guildId);
@@ -116,6 +116,11 @@ export class QueueManager {
 
   shuffle(guildId: string): void {
     const queue = this.getQueue(guildId);
+    
+    if (queue.songs.length <= 1) {
+      return; // Nothing to shuffle
+    }
+    
     const currentSong = queue.songs[queue.currentIndex];
     
     // Remove current song from shuffle
@@ -127,9 +132,13 @@ export class QueueManager {
       [remainingSongs[i], remainingSongs[j]] = [remainingSongs[j], remainingSongs[i]];
     }
     
-    // Rebuild queue with current song at the beginning
-    queue.songs = currentSong ? [currentSong, ...remainingSongs] : remainingSongs;
-    queue.currentIndex = 0;
+    // Atomically rebuild queue with current song at the beginning
+    const newSongs = currentSong ? [currentSong, ...remainingSongs] : remainingSongs;
+    const newCurrentIndex = 0;
+    
+    // Update queue state atomically
+    queue.songs = newSongs;
+    queue.currentIndex = newCurrentIndex;
     
     logger.info(`Shuffled queue for guild ${guildId}`);
   }

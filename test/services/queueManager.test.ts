@@ -144,6 +144,32 @@ describe('QueueManager', () => {
       expect(shuffledOrder).toHaveLength(originalOrder.length);
     });
 
+    it('should cover line 121 when queue has 0 songs', () => {
+      // Empty queue scenario - should return early and not shuffle
+      const queue = queueManager.getQueue('test-guild');
+      expect(queue.songs).toHaveLength(0);
+      
+      queueManager.shuffle('test-guild');
+      
+      // Should still be empty and not crash
+      expect(queue.songs).toHaveLength(0);
+      expect(queue.currentIndex).toBe(0);
+    });
+
+    it('should cover line 121 when queue has 1 song', () => {
+      // Single song scenario - should return early and not shuffle
+      queueManager.addSong('test-guild', mockSong);
+      const queue = queueManager.getQueue('test-guild');
+      expect(queue.songs).toHaveLength(1);
+      
+      queueManager.shuffle('test-guild');
+      
+      // Should still have 1 song and not crash
+      expect(queue.songs).toHaveLength(1);
+      expect(queue.songs[0]).toBe(mockSong);
+      expect(queue.currentIndex).toBe(0);
+    });
+
     it('should handle shuffle when currentSong is null (line 131)', () => {
       // Add songs but ensure no current song (empty queue scenario)
       const songs = Array.from({ length: 3 }, (_, i) => ({

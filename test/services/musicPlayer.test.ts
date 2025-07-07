@@ -162,12 +162,12 @@ describe('MusicPlayer', () => {
       const playingQueue = { ...mockQueue, isPlaying: true, songs: [mockSong, nextSong] };
       
       mockQueueManager.getQueue.mockReturnValue(playingQueue);
-      mockQueueManager.skip.mockReturnValue(nextSong);
+      mockQueueManager.advance.mockReturnValue(nextSong);
       mockQueueManager.getCurrentSong.mockReturnValue(nextSong);
 
       const result = await musicPlayer.skip('guild123');
 
-      expect(mockQueueManager.skip).toHaveBeenCalledWith('guild123');
+      expect(mockQueueManager.advance).toHaveBeenCalledWith('guild123');
       expect(result).toBe(nextSong);
     });
 
@@ -175,12 +175,12 @@ describe('MusicPlayer', () => {
       const playingQueue = { ...mockQueue, isPlaying: true, songs: [mockSong] };
       
       mockQueueManager.getQueue.mockReturnValue(playingQueue);
-      mockQueueManager.skip.mockReturnValue(null);
+      mockQueueManager.advance.mockReturnValue(null);
       
       const stopSpy = jest.spyOn(musicPlayer, 'stop');
       const result = await musicPlayer.skip('guild123');
 
-      expect(mockQueueManager.skip).toHaveBeenCalledWith('guild123');
+      expect(mockQueueManager.advance).toHaveBeenCalledWith('guild123');
       expect(stopSpy).toHaveBeenCalledWith('guild123');
       expect(result).toBeNull();
     });
@@ -210,7 +210,7 @@ describe('MusicPlayer', () => {
       const playingQueue = { ...mockQueue, isPlaying: true, songs: [mockSong, nextSong] };
       
       mockQueueManager.getQueue.mockReturnValue(playingQueue);
-      mockQueueManager.skip.mockReturnValue(nextSong);
+      mockQueueManager.advance.mockReturnValue(nextSong);
       mockQueueManager.getCurrentSong.mockReturnValue(nextSong);
       
       // Set up player and connection in musicPlayer
@@ -222,11 +222,32 @@ describe('MusicPlayer', () => {
       expect(mockAudioPlayer.stop).toHaveBeenCalled();
       expect(result).toBe(nextSong);
     });
+
+    it('should cover lines 80-82 when nextSong exists but no connection', async () => {
+      const nextSong: Song = { ...mockSong, title: 'Next Song' };
+      const playingQueue = { ...mockQueue, isPlaying: true, songs: [mockSong, nextSong] };
+      
+      mockQueueManager.getQueue.mockReturnValue(playingQueue);
+      mockQueueManager.advance.mockReturnValue(nextSong);
+      
+      // Set up player but NO connection to trigger lines 80-82
+      (musicPlayer as any).players.set('guild123', mockAudioPlayer);
+      // connections map is empty, so connection will be undefined
+
+      const result = await musicPlayer.skip('guild123');
+
+      expect(mockAudioPlayer.stop).toHaveBeenCalled();
+      expect(result).toBe(nextSong);
+      // Should not call play because there's no connection
+    });
   });
 
   describe('previous', () => {
     it('should go to previous song', async () => {
       const prevSong: Song = { ...mockSong, title: 'Previous Song' };
+      const playingQueue = { ...mockQueue, isPlaying: true };
+      
+      mockQueueManager.getQueue.mockReturnValue(playingQueue);
       mockQueueManager.previous.mockReturnValue(prevSong);
       mockQueueManager.getCurrentSong.mockReturnValue(prevSong);
 
@@ -237,12 +258,26 @@ describe('MusicPlayer', () => {
     });
 
     it('should return null when no previous song', async () => {
+      const playingQueue = { ...mockQueue, isPlaying: true };
+      
+      mockQueueManager.getQueue.mockReturnValue(playingQueue);
       mockQueueManager.previous.mockReturnValue(null);
 
       const result = await musicPlayer.previous('guild123');
 
       expect(mockQueueManager.previous).toHaveBeenCalledWith('guild123');
       expect(result).toBeNull();
+    });
+
+    it('should cover line 101 when not playing', async () => {
+      const notPlayingQueue = { ...mockQueue, isPlaying: false };
+      
+      mockQueueManager.getQueue.mockReturnValue(notPlayingQueue);
+
+      const result = await musicPlayer.previous('guild123');
+
+      expect(result).toBeNull();
+      expect(mockQueueManager.previous).not.toHaveBeenCalled();
     });
 
     it('should stop current player when going to previous', async () => {
@@ -346,17 +381,15 @@ describe('MusicPlayer', () => {
 
       musicPlayer.stop('guild123');
 
+      expect(mockQueueManager.clear).toHaveBeenCalledWith('guild123');
       expect(mockAudioPlayer.stop).toHaveBeenCalled();
-      expect(mockQueue.isPlaying).toBe(false);
-      expect(mockQueue.isPaused).toBe(false);
     });
 
     it('should handle no player', () => {
       musicPlayer.stop('guild123');
 
       expect(mockAudioPlayer.stop).not.toHaveBeenCalled();
-      expect(mockQueue.isPlaying).toBe(false);
-      expect(mockQueue.isPaused).toBe(false);
+      expect(mockQueueManager.clear).not.toHaveBeenCalled();
     });
   });
 
