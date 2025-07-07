@@ -1,7 +1,8 @@
-FROM node:20-bookworm-slim
+FROM node:20.18.1-bookworm-slim
 
-# Install ffmpeg with full codec support and other dependencies
-RUN apt-get update && apt-get install -y \
+# Install security updates and dependencies
+RUN apt-get update && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends \
     ffmpeg \
     libavcodec-extra \
     libopus0 \
@@ -10,8 +11,10 @@ RUN apt-get update && apt-get install -y \
     make \
     g++ \
     ca-certificates \
+    && apt-get autoremove -y \
+    && apt-get autoclean \
     && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+    && rm -rf /tmp/* /var/tmp/*
 
 # Create app directory
 WORKDIR /usr/src/app

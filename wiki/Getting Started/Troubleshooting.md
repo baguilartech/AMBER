@@ -133,7 +133,7 @@
    npm update
    ```
 
-**Performance Features (New in v1.1.1):**
+**Performance Features (New in v1.1.1, Enhanced in v1.1.2):**
 - **Prebuffering**: Next songs prepared in background for instant playback
 - **Parallel Search**: 3x faster YouTube search with simultaneous strategies
 - **Smart Caching**: LRU cache with automatic cleanup prevents memory bloat

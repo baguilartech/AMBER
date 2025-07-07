@@ -43,7 +43,7 @@ npm version major
 This will:
 - Update the version in `package.json`
 - Create a git commit with the version change
-- Create a git tag (e.g., `v1.1.1`)
+- Create a git tag (e.g., `v1.1.2`)
 
 ### 3. Push the Release
 
@@ -75,13 +75,13 @@ Once you push the tag, both GitHub and GitLab will automatically:
 **From GitHub:**
 ```bash
 docker pull ghcr.io/baguilar/amber:latest
-docker pull ghcr.io/baguilar/amber:v1.1.0
+docker pull ghcr.io/baguilar/amber:v1.1.2
 ```
 
 **From GitLab:**
 ```bash
 docker pull registry.gitlab.com/baguilar/amber/discord-bot:latest
-docker pull registry.gitlab.com/baguilar/amber/discord-bot:v1.1.0
+docker pull registry.gitlab.com/baguilar/amber/discord-bot:v1.1.2
 ```
 
 ### NPM Package
@@ -148,7 +148,7 @@ git push origin --tags --force-with-lease
 
 ## Notes
 
-- Releases are triggered by pushing git tags that start with `v` (e.g., `v1.1.0`)
+- Releases are triggered by pushing git tags that start with `v` (e.g., `v1.1.2`)
 - Both GitHub and GitLab releases run in parallel
 - Docker images are tagged with both the version and `latest`
 - NPM packages are published to both GitHub and GitLab package registries

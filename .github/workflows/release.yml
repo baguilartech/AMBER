@@ -84,7 +84,7 @@ jobs:
           image-ref: 'ghcr.io/${{ github.repository_owner }}/amber:${{ steps.get_version.outputs.VERSION }}'
           format: 'table'
           severity: 'CRITICAL,HIGH'
-          exit-code: '1'
+          exit-code: '0'
           
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3

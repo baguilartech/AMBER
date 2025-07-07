@@ -1,6 +1,6 @@
 {
   "name": "@baguilartech/amber-discord-bot",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Self-hosted Discord Music Bot with multi-platform streaming support",
   "main": "dist/index.js",
   "scripts": {
