@@ -232,12 +232,148 @@ describe('SpotifyService', () => {
       expect(streamUrl).toBe('https://youtube.com/watch?v=123');
     });
 
+    it('should fallback to strategy 2 when strategy 1 fails', async () => {
+      const mockYoutubeSong: Song = {
+        title: 'Test Song',
+        artist: 'Test Artist',
+        url: 'https://youtube.com/watch?v=123',
+        duration: 180,
+        requestedBy: 'user',
+        platform: 'youtube'
+      };
+
+      mockYouTubeService.search
+        .mockResolvedValueOnce([]) // Strategy 1 fails
+        .mockResolvedValueOnce([mockYoutubeSong]) // Strategy 2 succeeds
+        .mockResolvedValueOnce([]); // Strategy 3 not reached
+
+      const streamUrl = await spotifyService.getStreamUrl(mockSong);
+
+      expect(streamUrl).toBe('https://youtube.com/watch?v=123');
+    });
+
+    it('should fallback to strategy 3 when strategies 1 and 2 fail', async () => {
+      const mockYoutubeSong: Song = {
+        title: 'Test Song',
+        artist: 'Test Artist',
+        url: 'https://youtube.com/watch?v=123',
+        duration: 180,
+        requestedBy: 'user',
+        platform: 'youtube'
+      };
+
+      mockYouTubeService.search
+        .mockResolvedValueOnce([]) // Strategy 1 fails
+        .mockResolvedValueOnce([]) // Strategy 2 fails  
+        .mockResolvedValueOnce([mockYoutubeSong]); // Strategy 3 succeeds
+
+      const streamUrl = await spotifyService.getStreamUrl(mockSong);
+
+      expect(streamUrl).toBe('https://youtube.com/watch?v=123');
+    });
+
+    it('should use fallback search when all parallel strategies fail', async () => {
+      const mockYoutubeSong: Song = {
+        title: 'Test Song',
+        artist: 'Test Artist',
+        url: 'https://youtube.com/watch?v=123',
+        duration: 180,
+        requestedBy: 'user',
+        platform: 'youtube'
+      };
+
+      // All parallel strategies fail
+      mockYouTubeService.search
+        .mockResolvedValueOnce([]) // Strategy 1 fails
+        .mockResolvedValueOnce([]) // Strategy 2 fails  
+        .mockResolvedValueOnce([]) // Strategy 3 fails
+        .mockResolvedValueOnce([mockYoutubeSong]); // Fallback succeeds
+
+      const streamUrl = await spotifyService.getStreamUrl(mockSong);
+
+      expect(streamUrl).toBe('https://youtube.com/watch?v=123');
+    });
+
+    it('should use title-only search when fallback fails', async () => {
+      const mockYoutubeSong: Song = {
+        title: 'Test Song',
+        artist: 'Test Artist',
+        url: 'https://youtube.com/watch?v=123',
+        duration: 180,
+        requestedBy: 'user',
+        platform: 'youtube'
+      };
+
+      // All strategies and fallback fail, title-only succeeds
+      mockYouTubeService.search
+        .mockResolvedValueOnce([]) // Strategy 1 fails
+        .mockResolvedValueOnce([]) // Strategy 2 fails  
+        .mockResolvedValueOnce([]) // Strategy 3 fails
+        .mockResolvedValueOnce([]) // Fallback fails
+        .mockResolvedValueOnce([mockYoutubeSong]); // Title-only succeeds
+
+      const streamUrl = await spotifyService.getStreamUrl(mockSong);
+
+      expect(streamUrl).toBe('https://youtube.com/watch?v=123');
+    });
+
     it('should throw error when no YouTube equivalent found', async () => {
       mockYouTubeService.search.mockResolvedValue([]);
 
       await expect(spotifyService.getStreamUrl(mockSong)).rejects.toThrow(
         'No YouTube equivalent found for Spotify track: Test Song by Test Artist'
       );
+    });
+
+    it('should handle search timeout in getStreamUrl', async () => {
+      const mockSong: Song = {
+        title: 'Test Song',
+        artist: 'Test Artist',
+        url: 'https://spotify.com/track/123',
+        duration: 180,
+        requestedBy: 'user',
+        platform: 'spotify'
+      };
+
+      // Mock YouTube service to hang indefinitely
+      mockYouTubeService.search.mockImplementation(() => {
+        return new Promise((resolve) => {
+          // Never resolve to trigger timeout
+          setTimeout(() => resolve([]), 10000);
+        });
+      });
+
+      await expect(spotifyService.getStreamUrl(mockSong)).rejects.toThrow('Search timeout');
+    });
+
+    it('should handle timeout in parallel searches', async () => {
+      const mockSong: Song = {
+        title: 'Test Song',
+        artist: 'Test Artist',
+        url: 'https://spotify.com/track/123',
+        duration: 180,
+        requestedBy: 'user',
+        platform: 'spotify'
+      };
+
+      // Mock all search strategies to hang long enough to trigger timeout
+      mockYouTubeService.search.mockImplementation(() => {
+        return new Promise((resolve) => {
+          setTimeout(() => resolve([]), 9000); // Longer than 8s timeout
+        });
+      });
+
+      await expect(spotifyService.getStreamUrl(mockSong)).rejects.toThrow('Search timeout');
+    });
+
+    it('should handle access token refresh error in search', async () => {
+      mockSpotifyApi.clientCredentialsGrant.mockRejectedValue(new Error('Token error'));
+
+      const songs = await spotifyService.search('test');
+      
+      expect(songs).toEqual([]);
+      const { logger } = require('../../src/utils/logger');
+      expect(logger.error).toHaveBeenCalled();
     });
   });
 
@@ -374,6 +510,94 @@ describe('SpotifyService', () => {
       // This test is skipped due to module mocking complexity
       // The functionality is tested in the main service tests
       expect(true).toBe(true);
+    });
+  });
+
+  describe('getPrimaryArtist', () => {
+    it('should handle multiple artists separated by commas', async () => {
+      const songWithMultipleArtists: Song = {
+        title: 'Test Song',
+        artist: 'Artist One, Artist Two, Artist Three',
+        url: 'https://spotify.com/track/123',
+        duration: 180,
+        requestedBy: 'user',
+        platform: 'spotify'
+      };
+
+      const mockYoutubeSong: Song = {
+        title: 'Test Song',
+        artist: 'Artist One',
+        url: 'https://youtube.com/watch?v=123',
+        duration: 180,
+        requestedBy: 'user',
+        platform: 'youtube'
+      };
+
+      mockYouTubeService.search.mockResolvedValue([mockYoutubeSong]);
+
+      await spotifyService.getStreamUrl(songWithMultipleArtists);
+
+      // Should use only first two artists for better search results
+      expect(mockYouTubeService.search).toHaveBeenCalledWith('"Test Song" "Artist One, Artist Two"');
+    });
+
+    it('should handle single artist', async () => {
+      const songWithSingleArtist: Song = {
+        title: 'Test Song',
+        artist: 'Single Artist',
+        url: 'https://spotify.com/track/123',
+        duration: 180,
+        requestedBy: 'user',
+        platform: 'spotify'
+      };
+
+      const mockYoutubeSong: Song = {
+        title: 'Test Song',
+        artist: 'Single Artist',
+        url: 'https://youtube.com/watch?v=123',
+        duration: 180,
+        requestedBy: 'user',
+        platform: 'youtube'
+      };
+
+      mockYouTubeService.search.mockResolvedValue([mockYoutubeSong]);
+
+      await spotifyService.getStreamUrl(songWithSingleArtist);
+
+      // Should use the single artist as-is
+      expect(mockYouTubeService.search).toHaveBeenCalledWith('"Test Song" "Single Artist"');
+    });
+  });
+
+  describe('extractTrackId', () => {
+    it('should extract track ID from Spotify URL', () => {
+      const spotifyServiceAny = spotifyService as any;
+      
+      const trackId = spotifyServiceAny.extractTrackId('https://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh');
+      expect(trackId).toBe('4iV5W9uYEdYUVa79Axb7Rh');
+    });
+
+    it('should return null for invalid URL', () => {
+      const spotifyServiceAny = spotifyService as any;
+      
+      const trackId = spotifyServiceAny.extractTrackId('invalid-url');
+      expect(trackId).toBeNull();
+    });
+  });
+
+  describe('extractPlaylistId', () => {
+    it('should extract playlist ID from Spotify URL', () => {
+      const spotifyServiceAny = spotifyService as any;
+      
+      const playlistId = spotifyServiceAny.extractPlaylistId('https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M');
+      expect(playlistId).toBe('37i9dQZF1DXcBWIGoYBM5M');
+    });
+
+    it('should return null for invalid URL', () => {
+      const spotifyServiceAny = spotifyService as any;
+      
+      const playlistId = spotifyServiceAny.extractPlaylistId('invalid-url');
+      expect(playlistId).toBeNull();
     });
   });
 });

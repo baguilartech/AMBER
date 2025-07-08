@@ -14,6 +14,7 @@ A self-hosted Discord music bot with multi-platform streaming support. Stream mu
 - 🔄 **Auto-Disconnect**: Automatically leaves empty voice channels
 - 🎨 **TypeScript**: Full TypeScript support with strict typing
 - 🔍 **Intelligent Search**: Enhanced YouTube search with official channel prioritization
+- ⚡ **Prebuffering**: Smart audio prebuffering for seamless playback
 - 🛡️ **Security**: Automated vulnerability scanning and dependency management
 - 🧪 **100% Test Coverage**: Comprehensive test suite with perfect coverage
 
@@ -204,6 +205,7 @@ src/
 ├── services/        # Core music services
 │   ├── baseMusicService.ts    # Base service with common patterns
 │   ├── musicPlayer.ts         # Audio playback management
+│   ├── prebufferService.ts    # Audio prebuffering optimization
 │   ├── queueManager.ts        # Queue state management
 │   ├── serviceFactory.ts      # Service singleton management
 │   ├── youtubeService.ts      # YouTube search and streaming

@@ -58,6 +58,22 @@ describe('QueueManager', () => {
       
       expect(result).toBe(false);
     });
+
+    it('should not add song with invalid data (missing title)', () => {
+      const invalidSong = { ...mockSong, title: '' };
+      
+      const result = queueManager.addSong('test-guild', invalidSong);
+      
+      expect(result).toBe(false);
+    });
+
+    it('should not add song with invalid data (missing artist)', () => {
+      const invalidSong = { ...mockSong, artist: '' };
+      
+      const result = queueManager.addSong('test-guild', invalidSong);
+      
+      expect(result).toBe(false);
+    });
   });
 
   describe('getCurrentSong', () => {

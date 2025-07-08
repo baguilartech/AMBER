@@ -184,6 +184,87 @@ describe('YouTubeService', () => {
 
       await expect(youtubeService.getStreamUrl(mockSong)).rejects.toThrow('No suitable audio format found');
     });
+
+    it('should fallback to second format choice when first fails', async () => {
+      const mockSong: Song = {
+        title: 'Test Song',
+        artist: 'Test Artist',
+        url: 'https://www.youtube.com/watch?v=test123',
+        duration: 180,
+        requestedBy: 'TestUser',
+        platform: 'youtube'
+      };
+
+      const mockVideoInfo = {
+        formats: [
+          { url: 'https://stream.youtube.com/audio123', itag: '140', container: 'm4a', hasAudio: true, hasVideo: false }
+        ]
+      };
+
+      (mockYtdl.getInfo as any).mockResolvedValue(mockVideoInfo);
+      
+      // Mock chooseFormat to return null on first call, then return format on second
+      (mockYtdl.chooseFormat as any)
+        .mockReturnValueOnce(null) // First attempt fails
+        .mockReturnValueOnce({ url: 'https://stream.youtube.com/audio123', itag: '140', container: 'm4a' }); // Second succeeds
+
+      const streamUrl = await youtubeService.getStreamUrl(mockSong);
+
+      expect(streamUrl).toBe('https://stream.youtube.com/audio123');
+      expect(mockYtdl.chooseFormat).toHaveBeenCalledTimes(2);
+    });
+
+    it('should fallback to third format choice when first two fail', async () => {
+      const mockSong: Song = {
+        title: 'Test Song',
+        artist: 'Test Artist',
+        url: 'https://www.youtube.com/watch?v=test123',
+        duration: 180,
+        requestedBy: 'TestUser',
+        platform: 'youtube'
+      };
+
+      const mockVideoInfo = {
+        formats: [
+          { url: 'https://stream.youtube.com/audio123', itag: '140', container: 'm4a', hasAudio: true, hasVideo: false }
+        ]
+      };
+
+      (mockYtdl.getInfo as any).mockResolvedValue(mockVideoInfo);
+      
+      // Mock chooseFormat to return null on first two calls, then return format on third
+      (mockYtdl.chooseFormat as any)
+        .mockReturnValueOnce(null) // First attempt fails
+        .mockReturnValueOnce(null) // Second attempt fails
+        .mockReturnValueOnce({ url: 'https://stream.youtube.com/audio123', itag: '140', container: 'm4a' }); // Third succeeds
+
+      const streamUrl = await youtubeService.getStreamUrl(mockSong);
+
+      expect(streamUrl).toBe('https://stream.youtube.com/audio123');
+      expect(mockYtdl.chooseFormat).toHaveBeenCalledTimes(3);
+    });
+
+    it('should handle when no suitable format is found after all fallbacks', async () => {
+      const mockSong: Song = {
+        title: 'Test Song',
+        artist: 'Test Artist',
+        url: 'https://www.youtube.com/watch?v=test123',
+        duration: 180,
+        requestedBy: 'TestUser',
+        platform: 'youtube'
+      };
+
+      const mockVideoInfo = {
+        formats: [
+          { url: 'https://stream.youtube.com/video123', itag: '22', container: 'mp4', hasAudio: false, hasVideo: true }
+        ]
+      };
+
+      (mockYtdl.getInfo as any).mockResolvedValue(mockVideoInfo);
+      (mockYtdl.chooseFormat as any).mockReturnValue(null); // All attempts fail
+
+      await expect(youtubeService.getStreamUrl(mockSong)).rejects.toThrow('No suitable audio format found');
+    });
   });
 
   describe('getSongFromUrl', () => {
@@ -374,6 +455,48 @@ describe('YouTubeService', () => {
       // This test is skipped due to module mocking complexity
       // The functionality is tested in the main service tests
       expect(true).toBe(true);
+    });
+
+    it('should handle missing API key configuration', () => {
+      // Create a service instance with no API key
+      const unconfiguredService = new (class extends YouTubeService {
+        constructor() {
+          super();
+          (this as any).apiKey = '';
+        }
+      })();
+
+      expect(unconfiguredService.isConfigured()).toBe(false);
+    });
+  });
+
+  describe('private helper methods', () => {
+    it('should identify official channels', () => {
+      const youtubeServiceAny = youtubeService as any;
+      
+      expect(youtubeServiceAny.isOfficialChannel('testvevo')).toBe(true);
+      expect(youtubeServiceAny.isOfficialChannel('testrecords')).toBe(true);
+      expect(youtubeServiceAny.isOfficialChannel('officialmusic')).toBe(true);
+      expect(youtubeServiceAny.isOfficialChannel('randomuser')).toBe(false);
+    });
+
+    it('should identify official videos', () => {
+      const youtubeServiceAny = youtubeService as any;
+      
+      expect(youtubeServiceAny.isOfficialVideo('test song official video')).toBe(true);
+      expect(youtubeServiceAny.isOfficialVideo('test song official music video')).toBe(true);
+      expect(youtubeServiceAny.isOfficialVideo('test song (official)')).toBe(true);
+      expect(youtubeServiceAny.isOfficialVideo('test song cover')).toBe(false);
+    });
+
+    it('should identify live or cover videos', () => {
+      const youtubeServiceAny = youtubeService as any;
+      
+      expect(youtubeServiceAny.isLiveOrCover('test song live')).toBe(true);
+      expect(youtubeServiceAny.isLiveOrCover('test song cover')).toBe(true);
+      expect(youtubeServiceAny.isLiveOrCover('test song remix')).toBe(true);
+      expect(youtubeServiceAny.isLiveOrCover('test song acoustic')).toBe(true);
+      expect(youtubeServiceAny.isLiveOrCover('test song official')).toBe(false);
     });
   });
 });

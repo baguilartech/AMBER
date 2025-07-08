@@ -317,5 +317,103 @@ describe('PlayCommand', () => {
       expect(handleErrorSpy).toHaveBeenCalledWith(mockInteraction, expect.any(Error), 'play');
       handleErrorSpy.mockRestore();
     });
+
+    it('should not trigger prebuffering when queue is not playing', async () => {
+      mockInteraction.options.getString.mockReturnValue('test song');
+      
+      const mockSearchResults = [{
+        title: 'Test Song',
+        artist: 'Test Artist',
+        url: 'https://youtube.com/watch?v=test',
+        duration: 180,
+        requestedBy: 'TestUser',
+        platform: 'youtube' as const
+      }];
+
+      (ServiceFactory.handleServiceUrl as jest.Mock).mockResolvedValue(mockSearchResults);
+      (ServiceFactory.getAllServices as jest.Mock).mockReturnValue([]);
+      (ServiceFactory.getSpotifyService as jest.Mock).mockReturnValue({
+        validateUrl: jest.fn().mockReturnValue(false)
+      });
+      (ServiceFactory.getSoundCloudService as jest.Mock).mockReturnValue({
+        isConfigured: jest.fn().mockReturnValue(false)
+      });
+
+      mockQueueManager.addSong.mockReturnValue(true);
+      mockQueueManager.getQueue.mockReturnValue({
+        songs: [mockSearchResults[0]],
+        currentIndex: 0,
+        isPlaying: false, // Not playing - this should not trigger prebuffering
+        isPaused: false,
+        volume: 0.5
+      });
+
+      const { joinVoiceChannel } = require('@discordjs/voice');
+      const mockConnection = { subscribe: jest.fn() };
+      joinVoiceChannel.mockReturnValue(mockConnection);
+
+      mockMusicPlayer.waitForConnection.mockResolvedValue(undefined);
+      mockMusicPlayer.play.mockResolvedValue(undefined);
+
+      const triggerPrebufferingSpy = jest.spyOn(mockMusicPlayer, 'triggerPrebuffering');
+
+      await playCommand.execute(mockInteraction);
+
+      // Prebuffering should not be triggered when queue is not playing
+      expect(triggerPrebufferingSpy).not.toHaveBeenCalled();
+    });
+
+    it('should trigger prebuffering when adding to an already playing queue', async () => {
+      mockInteraction.options.getString.mockReturnValue('test song');
+      
+      const mockSearchResults = [{
+        title: 'Test Song',
+        artist: 'Test Artist',
+        url: 'https://youtube.com/watch?v=test',
+        duration: 180,
+        requestedBy: 'TestUser',
+        platform: 'youtube' as const
+      }];
+
+      (ServiceFactory.handleServiceUrl as jest.Mock).mockResolvedValue(mockSearchResults);
+      (ServiceFactory.getAllServices as jest.Mock).mockReturnValue([]);
+      (ServiceFactory.getSpotifyService as jest.Mock).mockReturnValue({
+        validateUrl: jest.fn().mockReturnValue(false)
+      });
+      (ServiceFactory.getSoundCloudService as jest.Mock).mockReturnValue({
+        isConfigured: jest.fn().mockReturnValue(false)
+      });
+
+      mockQueueManager.addSong.mockReturnValue(true);
+      mockQueueManager.getQueue.mockReturnValue({
+        songs: [mockSearchResults[0]],
+        currentIndex: 0,
+        isPlaying: true, // Playing - this should trigger prebuffering
+        isPaused: false,
+        volume: 0.5
+      });
+
+      const triggerPrebufferingSpy = jest.spyOn(mockMusicPlayer, 'triggerPrebuffering');
+
+      // Use fake timers to control setTimeout
+      jest.useFakeTimers();
+
+      // Start the execution
+      const executePromise = playCommand.execute(mockInteraction);
+      
+      // Fast-forward time to trigger the setTimeout
+      jest.advanceTimersByTime(150); // Increase the time to ensure setTimeout fires
+      
+      // Wait for all promises to resolve
+      await executePromise;
+      
+      // Flush any remaining timers
+      jest.runAllTimers();
+
+      expect(triggerPrebufferingSpy).toHaveBeenCalledWith('test-guild');
+
+      // Restore real timers
+      jest.useRealTimers();
+    });
   });
 });

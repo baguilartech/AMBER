@@ -7,50 +7,63 @@
 | Variable | Description | Example |
 |----------|-------------|----------|
 | `DISCORD_TOKEN` | Your Discord bot token | `YOUR_BOT_TOKEN_HERE` |
-| `DATABASE_URL` | Database connection string | `postgresql://user:pass@localhost:5432/amber` |
+| `DISCORD_CLIENT_ID` | Your Discord bot client ID | `YOUR_CLIENT_ID_HERE` |
 
-### Optional Variables
+### Music Service Integration
 
-| Variable | Description | Default |
-|----------|-------------|----------|
-| `NODE_ENV` | Environment mode | `production` |
-| `LOG_LEVEL` | Logging level | `info` |
-| `DEFAULT_VOLUME` | Default playback volume | `50` |
-| `QUEUE_PAGE_SIZE` | Items per queue page | `10` |
-
-## Music Service Integration
-
-### Spotify
-
+#### Spotify
 ```env
 SPOTIFY_CLIENT_ID=your_spotify_client_id
 SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
 ```
 
-### YouTube
-
+#### YouTube
 ```env
 YOUTUBE_API_KEY=your_youtube_api_key
 ```
 
-### SoundCloud
-
+#### SoundCloud (Optional)
 ```env
 SOUNDCLOUD_CLIENT_ID=your_soundcloud_client_id
 ```
 
-## Database Configuration
+### Optional Bot Configuration
 
-### PostgreSQL (Recommended)
+| Variable | Description | Default |
+|----------|-------------|----------|
+| `NODE_ENV` | Environment mode | `production` |
+| `LOG_LEVEL` | Logging level | `info` |
+| `BOT_PREFIX` | Command prefix (legacy) | `!` |
+| `MAX_QUEUE_SIZE` | Maximum songs in queue | `100` |
+| `DEFAULT_VOLUME` | Default volume (0.0-1.0) | `0.5` |
+| `AUTO_LEAVE_TIMEOUT` | Auto-leave timeout (ms) | `300000` |
+
+## Complete .env Example
 
 ```env
-DATABASE_URL=postgresql://username:password@localhost:5432/amber
-```
+# Discord Bot Configuration
+DISCORD_TOKEN=your_discord_bot_token_here
+DISCORD_CLIENT_ID=your_discord_client_id_here
 
-### SQLite (Development)
+# YouTube API Configuration
+YOUTUBE_API_KEY=your_youtube_api_key_here
 
-```env
-DATABASE_URL=file:./amber.db
+# Spotify API Configuration
+SPOTIFY_CLIENT_ID=your_spotify_client_id_here
+SPOTIFY_CLIENT_SECRET=your_spotify_client_secret_here
+
+# SoundCloud Configuration (Optional)
+SOUNDCLOUD_CLIENT_ID=your_soundcloud_client_id_here
+
+# Bot Configuration
+BOT_PREFIX=!
+MAX_QUEUE_SIZE=100
+DEFAULT_VOLUME=0.5
+AUTO_LEAVE_TIMEOUT=300000
+
+# Development
+NODE_ENV=production
+LOG_LEVEL=info
 ```
 
 ## Bot Permissions
@@ -70,36 +83,23 @@ Ensure your bot has the following permissions:
   - Speak
   - Use Voice Activity
 
-## Advanced Configuration
+## Performance Configuration
 
-### Custom Prefix
+### Docker Resource Limits
 
-```env
-BOT_PREFIX=!
+The included `docker-compose.yml` provides optimized resource limits:
+
+```yaml
+mem_limit: 512m
+cpus: 0.5
 ```
 
-### Auto-leave Settings
+### Prebuffering Settings
 
-```env
-AUTO_LEAVE_TIMEOUT=300000  # 5 minutes in milliseconds
-LEAVE_ON_EMPTY=true
-```
-
-### Quality Settings
-
-```env
-AUDIO_QUALITY=high  # low, medium, high
-BITRATE=128000     # Audio bitrate
-```
-
-## Guild-specific Settings
-
-Amber supports per-server configuration through slash commands:
-
-- `/config volume <value>` - Set default volume
-- `/config prefix <prefix>` - Set command prefix
-- `/config auto-announce <true/false>` - Auto-announce next song
-- `/config queue-size <size>` - Set queue page size
+Prebuffering is automatically configured with:
+- **Cache Size**: 50 songs maximum
+- **Prebuffer Count**: Next 1-2 songs
+- **Cleanup**: Automatic LRU cache cleanup
 
 ## Troubleshooting
 
@@ -107,7 +107,14 @@ Amber supports per-server configuration through slash commands:
 
 1. **Bot not responding**: Check if the bot has proper permissions
 2. **Music not playing**: Verify voice channel permissions
-3. **Database errors**: Check database connection string
-4. **API errors**: Verify service API keys
+3. **API errors**: Verify service API keys
+4. **Docker issues**: Check container logs with `docker-compose logs`
+
+### Debug Mode
+
+For verbose logging, set:
+```env
+LOG_LEVEL=debug
+```
 
 For more help, see [Troubleshooting](Troubleshooting).

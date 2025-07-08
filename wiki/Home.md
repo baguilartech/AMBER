@@ -1,6 +1,6 @@
 # 🎵 Amber Discord Music Bot Wiki
 
-Welcome to the comprehensive documentation for Amber, a powerful self-hosted Discord music bot with multi-platform streaming support!
+Welcome to the documentation for Amber, a self-hosted Discord music bot with multi-platform streaming support!
 
 ## 🚀 Quick Navigation
 
@@ -19,103 +19,106 @@ Welcome to the comprehensive documentation for Amber, a powerful self-hosted Dis
 - [🚀 Release Guide](Releasing) - Release management
 
 ### 🛠️ How To Contribute
-- [🎼 Adding Music Services](Adding-Music-Services) - Integrate new streaming platforms
-- [⚡ Creating Commands](Creating-Commands) - Build new Discord commands
-- [🎮 Adding Features & Games](Adding-Features-and-Games) - Extend with new features
+- [🎼 Adding Music Services](Adding%20Music%20Services) - Integrate new streaming platforms
+- [⚡ Creating Commands](Creating%20Commands) - Build new Discord commands
+- [🎮 Adding Features](DAdding%20Features%20and%20Games) - Extend with new features
 
 ## ✨ What is Amber?
 
-Amber is a **self-hosted Discord music bot** designed for reliability, extensibility, and ease of use. Built with modern technologies and best practices.
+Amber is a **self-hosted Discord music bot** designed for reliability and ease of use. Built with TypeScript and modern development practices.
 
 ### 🎵 Supported Platforms
 - **YouTube** - High-quality audio streaming with intelligent search
-- **Spotify** - Track metadata and playlist integration
-- **SoundCloud** - Independent artist and remix support
+- **Spotify** - Track metadata and search integration
+- **SoundCloud** - Independent artist and content support
 
 ### 🌟 Key Features
 
 #### 🎛️ **Music Management**
-- High-quality audio streaming with adaptive bitrates
-- Intelligent queue management with advanced controls
-- Playlist creation and management
-- Favorites system for quick access
-- Loop and shuffle modes
+- High-quality audio streaming
+- Queue management with skip, pause, resume
+- Volume control and auto-disconnect
+- Smart prebuffering for seamless playback
 
 #### 🚀 **Modern Interface**
-- Discord slash commands with autocomplete
-- Rich embeds with song metadata and thumbnails
-- Real-time queue visualization
-- Interactive controls and feedback
+- Discord slash commands
+- Rich embeds with song information
+- Real-time queue display
+- User-friendly error messages
 
 #### 🐳 **Production Ready**
 - Docker containerization for easy deployment
-- Comprehensive error handling and recovery
-- Automatic resource management
-- Health monitoring and logging
+- Resource limits and health monitoring
+- Comprehensive error handling
+- Automatic cleanup and optimization
 
 #### 🔧 **Developer Friendly**
-- TypeScript with strict typing
-- 100% test coverage
-- Modular architecture with DRY principles
-- Comprehensive documentation
+- TypeScript with full type safety
+- Simple, modular architecture
+- Comprehensive test coverage
+- Clear documentation
 
 ## 🎯 Quick Start Paths
 
 ### 🎵 **For Server Owners**
 1. **[Install Amber](Installation)** - Get your bot running
-2. **[Configure Settings](Configuration)** - Customize behavior
-3. **[Learn Commands](Commands)** - Master the interface
+2. **[Configure Settings](Configuration)** - Set up API keys
+3. **[Learn Commands](Commands)** - Master the 9 available commands
 
 ### 👩‍💻 **For Developers**
-1. **[Understand Architecture](Architecture)** - Learn the system design
+1. **[Understand Architecture](Architecture)** - Learn the simple design
 2. **[Setup Development](Developing)** - Get development environment ready
-3. **[Contribute Features](Adding-Features-and-Games)** - Add new functionality
+3. **[Create Commands](Creating%20Commands)** - Add new functionality
 
-### 🎼 **For Contributors**
-1. **[Adding Music Services](Adding-Music-Services)** - Integrate new platforms
-2. **[Creating Commands](Creating-Commands)** - Build Discord commands
-3. **[Testing Guide](Testing)** - Ensure quality contributions
+## 📊 Current Features
 
-## 📊 Project Statistics
+### Available Commands (9 total)
+- **Music Playback**: `/play`, `/pause`, `/resume`, `/stop`, `/skip`
+- **Audio Control**: `/volume`
+- **Queue Management**: `/queue`, `/nowplaying`
 
-- **🏗️ Architecture**: Modular, layered design with clear separation of concerns
-- **🧪 Testing**: 60+ test cases with 100% coverage across all metrics
-- **📝 TypeScript**: Full type safety with strict compilation
-- **🐳 Deployment**: Docker-ready with health monitoring
-- **📚 Documentation**: Comprehensive guides with visual diagrams
+### Architecture Components
+- **Commands Layer**: 9 slash commands with BaseCommand pattern
+- **Services Layer**: YouTube, Spotify, SoundCloud integration
+- **Management Layer**: Queue, music player, prebuffer service
+- **Utilities**: Logger, config, error handling, formatters
+
+### Performance Features
+- **Prebuffering**: Smart background preparation of next songs
+- **Intelligent Search**: YouTube searches prioritize official channels
+- **Resource Management**: Docker limits and automatic cleanup
 
 ## 💡 Why Choose Amber?
 
 ### 🔒 **Self-Hosted Control**
-- Complete data privacy and control
-- No third-party dependencies for core functionality
-- Customizable to your server's needs
+- Complete privacy and control over your bot
+- No external dependencies for core functionality
+- Customizable for your server's specific needs
 
-### 🎯 **Built for Scale**
-- Multi-server support with isolated state
-- Resource-efficient with automatic cleanup
-- Production-tested reliability
+### 🎯 **Simple & Reliable**
+- Straightforward architecture that's easy to understand
+- Proven reliability with comprehensive error handling
+- Resource-efficient with automatic management
 
 ### 🛠️ **Developer Experience**
-- Clean, documented codebase
-- Visual architecture diagrams
-- Comprehensive testing suite
-- Modern development tools
+- Clean, well-documented codebase
+- Simple patterns that are easy to extend
+- Comprehensive testing for confidence in changes
 
 ## 🆘 Need Help?
 
 ### 📖 **Documentation**
-Start with our comprehensive guides organized by your role and needs.
+Start with our guides organized by your role and needs.
 
 ### 🐛 **Issues & Bugs**
 - Check [Troubleshooting](Troubleshooting) for common solutions
-- Review logs for specific error messages
-- Report issues on our GitHub/GitLab repository
+- Review Docker logs for specific error messages
+- Verify API credentials and permissions
 
 ### 💬 **Community**
-- Join community discussions for support
-- Share your configurations and customizations
+- Share configurations and customizations
 - Contribute to documentation improvements
+- Report issues and suggest enhancements
 
 ---
 
@@ -123,6 +126,6 @@ Start with our comprehensive guides organized by your role and needs.
 
 We welcome contributions! See our [development guides](Developing) to get started.
 
-**Latest Update**: This wiki is automatically synchronized with the main repository to ensure accuracy.
+**Current Status**: Simple, focused music bot with 9 core commands and multi-platform support.
 
-*Built with ❤️ for the Discord community*
+*Built for the Discord community with simplicity and reliability in mind*

@@ -105,7 +105,7 @@ docker run -d --env-file .env amber
 ## Next Steps
 
 - Configure your bot settings in [Configuration](Configuration)
-- Learn about available commands in [Commands Reference](../Using%20AMBER/Commands)
+- Learn about available commands in [Commands Reference](WCommands)
 - Set up music service integrations for YouTube, Spotify, and SoundCloud
 
 ## Performance Features
