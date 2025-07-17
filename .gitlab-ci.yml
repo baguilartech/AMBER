@@ -54,6 +54,10 @@ variables:
     # Send pipeline metrics to ELK Stack via Logstash beats (uses CI/CD variables: ELK_HOST, ELK_PORT)
     - |
       if [ -n "$ELK_HOST" ] && [ -n "$ELK_PORT" ]; then
+        # Install curl if not available
+        if ! command -v curl >/dev/null 2>&1; then
+          apt-get update && apt-get install -y curl
+        fi
         # Install filebeat for sending to Logstash
         curl -L -O https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-8.11.0-linux-x86_64.tar.gz
         tar xzvf filebeat-8.11.0-linux-x86_64.tar.gz
@@ -97,6 +101,10 @@ variables:
     # Send annotations to Grafana (uses CI/CD variables: GRAFANA_HOST, GRAFANA_API_TOKEN)
     - |
       if [ -n "$GRAFANA_HOST" ] && [ -n "$GRAFANA_API_TOKEN" ]; then
+        # Install curl if not available
+        if ! command -v curl >/dev/null 2>&1; then
+          apt-get update && apt-get install -y curl
+        fi
         curl -X POST "http://${GRAFANA_HOST}:3000/api/annotations" \
           -H "Authorization: Bearer $GRAFANA_API_TOKEN" \
           -H "Content-Type: application/json" \
@@ -194,6 +202,10 @@ sonar_scan:
     # Send SonarQube scan event to ELK via Logstash beats (uses CI/CD variables: ELK_HOST, ELK_PORT)
     - |
       if [ -n "$ELK_HOST" ] && [ -n "$ELK_PORT" ]; then
+        # Install curl if not available
+        if ! command -v curl >/dev/null 2>&1; then
+          apt-get update && apt-get install -y curl
+        fi
         # Install filebeat if not already present
         if [ ! -d "filebeat-8.11.0-linux-x86_64" ]; then
           curl -L -O https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-8.11.0-linux-x86_64.tar.gz
@@ -284,6 +296,10 @@ build-container:
     # Send container build event to ELK via Logstash beats (uses CI/CD variables: ELK_HOST, ELK_PORT)
     - |
       if [ -n "$ELK_HOST" ] && [ -n "$ELK_PORT" ]; then
+        # Install curl if not available
+        if ! command -v curl >/dev/null 2>&1; then
+          apt-get update && apt-get install -y curl
+        fi
         # Install filebeat if not already present
         if [ ! -d "filebeat-8.11.0-linux-x86_64" ]; then
           curl -L -O https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-8.11.0-linux-x86_64.tar.gz
