@@ -74,21 +74,21 @@ variables:
         
         # Configure filebeat to send to Logstash
         cat > filebeat.yml << EOF
-filebeat.inputs:
-- type: log
-  enabled: true
-  paths:
-    - /tmp/pipeline_metrics.json
-  json.keys_under_root: true
-  json.add_error_key: true
+      filebeat.inputs:
+      - type: log
+        enabled: true
+        paths:
+          - /tmp/pipeline_metrics.json
+        json.keys_under_root: true
+        json.add_error_key: true
 
-output.logstash:
-  hosts: ["${ELK_HOST}:${ELK_PORT}"]
+      output.logstash:
+        hosts: ["${ELK_HOST}:${ELK_PORT}"]
 
-processors:
-  - add_host_metadata:
-    when.not.contains.tags: forwarded
-EOF
+      processors:
+        - add_host_metadata:
+            when.not.contains.tags: forwarded
+      EOF
         
         # Send logs to Logstash
         ./filebeat -e -c filebeat.yml --path.data /tmp/filebeat_data || echo "Failed to send metrics to ELK"
@@ -213,21 +213,21 @@ sonar_scan:
         
         # Configure filebeat to send to Logstash
         cat > filebeat_sonar.yml << EOF
-filebeat.inputs:
-- type: log
-  enabled: true
-  paths:
-    - /tmp/sonar_metrics.json
-  json.keys_under_root: true
-  json.add_error_key: true
+      filebeat.inputs:
+      - type: log
+        enabled: true
+        paths:
+          - /tmp/sonar_metrics.json
+        json.keys_under_root: true
+        json.add_error_key: true
 
-output.logstash:
-  hosts: ["${ELK_HOST}:${ELK_PORT}"]
+      output.logstash:
+        hosts: ["${ELK_HOST}:${ELK_PORT}"]
 
-processors:
-  - add_host_metadata:
-    when.not.contains.tags: forwarded
-EOF
+      processors:
+        - add_host_metadata:
+            when.not.contains.tags: forwarded
+      EOF
         
         # Send logs to Logstash
         ./filebeat -e -c filebeat_sonar.yml --path.data /tmp/filebeat_sonar_data || echo "Failed to send SonarQube metrics to ELK"
@@ -303,21 +303,21 @@ build-container:
         
         # Configure filebeat to send to Logstash
         cat > filebeat_build.yml << EOF
-filebeat.inputs:
-- type: log
-  enabled: true
-  paths:
-    - /tmp/build_metrics.json
-  json.keys_under_root: true
-  json.add_error_key: true
+      filebeat.inputs:
+      - type: log
+        enabled: true
+        paths:
+          - /tmp/build_metrics.json
+        json.keys_under_root: true
+        json.add_error_key: true
 
-output.logstash:
-  hosts: ["${ELK_HOST}:${ELK_PORT}"]
+      output.logstash:
+        hosts: ["${ELK_HOST}:${ELK_PORT}"]
 
-processors:
-  - add_host_metadata:
-    when.not.contains.tags: forwarded
-EOF
+      processors:
+        - add_host_metadata:
+            when.not.contains.tags: forwarded
+      EOF
         
         # Send logs to Logstash
         ./filebeat -e -c filebeat_build.yml --path.data /tmp/filebeat_build_data || echo "Failed to send build metrics to ELK"
