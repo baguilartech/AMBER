@@ -27,17 +27,20 @@
   "author": "Amber Discord Bot",
   "license": "MIT",
   "dependencies": {
+    "@discordjs/opus": "^0.10.0",
     "@discordjs/voice": "^0.17.0",
+    "@distube/ytdl-core": "^4.14.4",
+    "@sentry/node": "^9.39.0",
     "discord.js": "^14.14.1",
     "dotenv": "^16.3.1",
+    "express": "^5.1.0",
     "ffmpeg-static": "^5.2.0",
     "libsodium-wrappers": "^0.7.13",
-    "@discordjs/opus": "^0.10.0",
     "play-dl": "^1.9.7",
-    "spotify-web-api-node": "^5.0.2",
-    "@distube/ytdl-core": "^4.14.4"
+    "spotify-web-api-node": "^5.0.2"
   },
   "devDependencies": {
+    "@types/express": "^5.0.3",
     "@types/jest": "^29.5.8",
     "@types/node": "^20.10.5",
     "@types/spotify-web-api-node": "^5.0.11",

@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: amber-config
+  namespace: amber
+  labels:
+    app: discord-bot
+data:
+  # Application configuration
+  NODE_ENV: "production"
+  LOG_LEVEL: "info"
+  
+  # Monitoring configuration
+  ENABLE_METRICS: "true"
+  METRICS_PORT: "3000"
+  PROMETHEUS_ENDPOINT: "/metrics"
+  
+  # Logging configuration
+  LOG_FORMAT: "json"
+  LOG_OUTPUT: "stdout"
+  
+  # Health check configuration
+  HEALTH_CHECK_PORT: "3001"
+  HEALTH_CHECK_PATH: "/health"
+  
+  # ELK Stack integration
+  ELK_ENABLED: "true"
+  # ELK_HOST and ELK_PORT will be injected during deployment
+  # Logs are collected via Filebeat sidecar container
+  
+  # Sentry integration
+  SENTRY_ENABLED: "true"
+  SENTRY_ENVIRONMENT: "production"

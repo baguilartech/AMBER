@@ -86,7 +86,13 @@ export class SoundCloudService extends BaseMusicService {
       const resolveUrl = `https://api.soundcloud.com/resolve?url=${encodeURIComponent(url)}&client_id=${this.clientId}`;
       
       const response = await fetch(resolveUrl);
-      const track = await response.json() as any;
+      const track = await response.json() as { 
+        title: string; 
+        user?: { username: string }; 
+        duration: number; 
+        kind: string; 
+        artwork_url?: string;
+      };
 
       if (!track || track.kind !== 'track') {
         return null;

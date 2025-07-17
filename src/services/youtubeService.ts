@@ -5,6 +5,16 @@ import { URLValidator } from '../utils/urlValidator';
 import { BaseMusicService } from './baseMusicService';
 import ytdl from '@distube/ytdl-core';
 
+interface YouTubeSearchItem {
+  id: { videoId: string };
+  snippet: { 
+    title: string;
+    channelTitle: string;
+    publishedAt: string;
+    thumbnails?: { medium?: { url: string } };
+  };
+}
+
 export class YouTubeService extends BaseMusicService {
   protected platform = 'YouTube';
   private apiKey: string;
@@ -20,7 +30,9 @@ export class YouTubeService extends BaseMusicService {
       const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&key=${this.apiKey}&maxResults=5&order=relevance&videoCategoryId=10`;
       
       const response = await fetch(searchUrl);
-      const data = await response.json() as any;
+      const data = await response.json() as {
+        items?: YouTubeSearchItem[];
+      };
 
       if (!data.items || data.items.length === 0) {
         this.logNoResults(query);
@@ -146,7 +158,7 @@ export class YouTubeService extends BaseMusicService {
     }
   }
 
-  private sortYouTubeResults(items: any[], query: string): any[] {
+  private sortYouTubeResults(items: YouTubeSearchItem[], query: string): YouTubeSearchItem[] {
     return items.sort((a, b) => {
       let scoreA = 0;
       let scoreB = 0;

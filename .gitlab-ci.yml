@@ -48,6 +48,65 @@ variables:
       - .npm/
     policy: pull-push
 
+# Observability integration template
+.observability_template: &observability_template
+  after_script:
+    # Send pipeline metrics to ELK Stack via Logstash beats (uses CI/CD variables: ELK_HOST, ELK_PORT)
+    - |
+      if [ -n "$ELK_HOST" ] && [ -n "$ELK_PORT" ]; then
+        # Install filebeat for sending to Logstash
+        curl -L -O https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-8.11.0-linux-x86_64.tar.gz
+        tar xzvf filebeat-8.11.0-linux-x86_64.tar.gz
+        cd filebeat-8.11.0-linux-x86_64
+        
+        # Create temp log file with pipeline metrics
+        echo '{
+          "timestamp": "'$(date -Iseconds)'",
+          "event": "pipeline_job",
+          "job_name": "'${CI_JOB_NAME}'",
+          "job_status": "'${CI_JOB_STATUS:-unknown}'",
+          "project": "'${CI_PROJECT_NAME}'",
+          "commit": "'${CI_COMMIT_SHA}'",
+          "branch": "'${CI_COMMIT_REF_NAME}'",
+          "pipeline_id": "'${CI_PIPELINE_ID}'",
+          "stage": "'${CI_JOB_STAGE}'"
+        }' > /tmp/pipeline_metrics.json
+        
+        # Configure filebeat to send to Logstash
+        cat > filebeat.yml << EOF
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /tmp/pipeline_metrics.json
+  json.keys_under_root: true
+  json.add_error_key: true
+
+output.logstash:
+  hosts: ["${ELK_HOST}:${ELK_PORT}"]
+
+processors:
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
+EOF
+        
+        # Send logs to Logstash
+        ./filebeat -e -c filebeat.yml --path.data /tmp/filebeat_data || echo "Failed to send metrics to ELK"
+        cd ..
+      fi
+    # Send annotations to Grafana (uses CI/CD variables: GRAFANA_HOST, GRAFANA_API_TOKEN)
+    - |
+      if [ -n "$GRAFANA_HOST" ] && [ -n "$GRAFANA_API_TOKEN" ]; then
+        curl -X POST "http://${GRAFANA_HOST}:3000/api/annotations" \
+          -H "Authorization: Bearer $GRAFANA_API_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "text": "Pipeline '${CI_JOB_STATUS:-unknown}': '${CI_JOB_NAME}' in '${CI_PROJECT_NAME}'",
+            "tags": ["pipeline", "'${CI_PROJECT_NAME}'", "'${CI_COMMIT_REF_NAME}'", "'${CI_JOB_STAGE}'"],
+            "time": '$(date +%s)'000
+          }' || echo "Failed to send annotation to Grafana"
+      fi
+
 # Override Auto-DevOps build job to handle Node.js
 build:
   stage: build
@@ -86,6 +145,7 @@ test:
       - coverage/
       - reports/
     expire_in: 1 week
+  <<: *observability_template
 
 # Override linting (run in test stage)
 lint:
@@ -100,6 +160,7 @@ lint:
       junit: reports/lint-results.xml
     when: always
     expire_in: 1 week
+  <<: *observability_template
 
 # SonarQube Analysis (custom)
 sonar_scan:
@@ -130,12 +191,55 @@ sonar_scan:
       fi
   script: 
     - sonar-scanner -Dsonar.host.url="${SONAR_HOST_URL}"
+    # Send SonarQube scan event to ELK via Logstash beats (uses CI/CD variables: ELK_HOST, ELK_PORT)
+    - |
+      if [ -n "$ELK_HOST" ] && [ -n "$ELK_PORT" ]; then
+        # Install filebeat if not already present
+        if [ ! -d "filebeat-8.11.0-linux-x86_64" ]; then
+          curl -L -O https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-8.11.0-linux-x86_64.tar.gz
+          tar xzvf filebeat-8.11.0-linux-x86_64.tar.gz
+        fi
+        cd filebeat-8.11.0-linux-x86_64
+        
+        # Create temp log file with SonarQube metrics
+        echo '{
+          "timestamp": "'$(date -Iseconds)'",
+          "event": "sonarqube_scan",
+          "project": "'${CI_PROJECT_NAME}'",
+          "commit": "'${CI_COMMIT_SHA}'",
+          "branch": "'${CI_COMMIT_REF_NAME}'",
+          "sonar_host": "'${SONAR_HOST_URL}'"
+        }' > /tmp/sonar_metrics.json
+        
+        # Configure filebeat to send to Logstash
+        cat > filebeat_sonar.yml << EOF
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /tmp/sonar_metrics.json
+  json.keys_under_root: true
+  json.add_error_key: true
+
+output.logstash:
+  hosts: ["${ELK_HOST}:${ELK_PORT}"]
+
+processors:
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
+EOF
+        
+        # Send logs to Logstash
+        ./filebeat -e -c filebeat_sonar.yml --path.data /tmp/filebeat_sonar_data || echo "Failed to send SonarQube metrics to ELK"
+        cd ..
+      fi
   allow_failure: true
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_COMMIT_BRANCH == 'master'
     - if: $CI_COMMIT_BRANCH == 'main'
     - if: $CI_COMMIT_BRANCH == 'develop'
+  <<: *observability_template
 
 # Pages for coverage reports
 pages:
@@ -177,6 +281,48 @@ build-container:
     - echo "Pushing container image to registry..."
     - docker push $CONTAINER_IMAGE:$CI_COMMIT_SHA
     - docker push $CONTAINER_IMAGE:latest
+    # Send container build event to ELK via Logstash beats (uses CI/CD variables: ELK_HOST, ELK_PORT)
+    - |
+      if [ -n "$ELK_HOST" ] && [ -n "$ELK_PORT" ]; then
+        # Install filebeat if not already present
+        if [ ! -d "filebeat-8.11.0-linux-x86_64" ]; then
+          curl -L -O https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-8.11.0-linux-x86_64.tar.gz
+          tar xzvf filebeat-8.11.0-linux-x86_64.tar.gz
+        fi
+        cd filebeat-8.11.0-linux-x86_64
+        
+        # Create temp log file with container build metrics
+        echo '{
+          "timestamp": "'$(date -Iseconds)'",
+          "event": "container_build",
+          "project": "'${CI_PROJECT_NAME}'",
+          "commit": "'${CI_COMMIT_SHA}'",
+          "branch": "'${CI_COMMIT_REF_NAME}'",
+          "image": "'${CONTAINER_IMAGE}:${CI_COMMIT_SHA}'"
+        }' > /tmp/build_metrics.json
+        
+        # Configure filebeat to send to Logstash
+        cat > filebeat_build.yml << EOF
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /tmp/build_metrics.json
+  json.keys_under_root: true
+  json.add_error_key: true
+
+output.logstash:
+  hosts: ["${ELK_HOST}:${ELK_PORT}"]
+
+processors:
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
+EOF
+        
+        # Send logs to Logstash
+        ./filebeat -e -c filebeat_build.yml --path.data /tmp/filebeat_build_data || echo "Failed to send build metrics to ELK"
+        cd ..
+      fi
   rules:
     - if: $CI_COMMIT_BRANCH == 'main'
     - if: $CI_COMMIT_BRANCH == 'develop'
@@ -185,6 +331,7 @@ build-container:
         - Dockerfile
         - package*.json
         - src/**/*
+  <<: *observability_template
 
 # Container Security Scanning
 container_scanning:
@@ -332,3 +479,71 @@ canary:
 production:
   rules:
     - when: never
+
+# ==========================================
+# OBSERVABILITY INTEGRATIONS
+# ==========================================
+
+# Sentry release management (uses CI/CD variables: SENTRY_AUTH_TOKEN, SENTRY_ORG, SENTRY_PROJECT)
+sentry_release:
+  stage: deploy
+  image: getsentry/sentry-cli:latest
+  script:
+    - |
+      if [ -n "$SENTRY_AUTH_TOKEN" ] && [ -n "$SENTRY_ORG" ] && [ -n "$SENTRY_PROJECT" ]; then
+        echo "Creating Sentry release..."
+        sentry-cli releases new $CI_COMMIT_SHA
+        sentry-cli releases set-commits --auto $CI_COMMIT_SHA
+        sentry-cli releases finalize $CI_COMMIT_SHA
+        echo "Sentry release created successfully"
+      else
+        echo "Sentry variables not configured, skipping release creation"
+      fi
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'main'
+    - if: $CI_COMMIT_TAG
+  allow_failure: true
+  <<: *observability_template
+
+# ArgoCD deployment for production (uses CI/CD variables: ARGOCD_SERVER, ARGOCD_PASSWORD)
+deploy_argocd:
+  stage: deploy
+  image: argoproj/argocd:v2.9.0
+  before_script:
+    # Install kubectl for deployment script
+    - curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    - chmod +x kubectl
+    - mv kubectl /usr/local/bin/
+    - apk add --no-cache gettext  # for envsubst
+  script:
+    - |
+      if [ -n "$ARGOCD_SERVER" ] && [ -n "$ARGOCD_PASSWORD" ]; then
+        echo "Deploying via ArgoCD..."
+        argocd login $ARGOCD_SERVER --username admin --password $ARGOCD_PASSWORD --insecure
+        
+        # First deploy using our script that handles environment variables
+        cd k8s
+        export DISCORD_TOKEN="$DISCORD_TOKEN"
+        export SPOTIFY_CLIENT_ID="$SPOTIFY_CLIENT_ID" 
+        export SPOTIFY_CLIENT_SECRET="$SPOTIFY_CLIENT_SECRET"
+        export SENTRY_DSN="$SENTRY_DSN"
+        ./deploy.sh
+        
+        # Then sync with ArgoCD
+        argocd app set amber-discord-bot --parameter image.tag=$CI_COMMIT_SHA
+        argocd app sync amber-discord-bot --prune
+        argocd app wait amber-discord-bot --timeout 300
+        echo "ArgoCD deployment completed"
+      else
+        echo "ArgoCD variables not configured, skipping ArgoCD deployment"
+      fi
+  environment:
+    name: production
+    url: https://amber.prodigalpros.com
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'main'
+  needs:
+    - build-container
+  <<: *observability_template
+

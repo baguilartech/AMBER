@@ -66,6 +66,7 @@ export class PlayCommand extends BaseCommandClass {
         const connection = joinVoiceChannel({
           channelId: member.voice.channel.id,
           guildId: guildId,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           adapterCreator: interaction.guild!.voiceAdapterCreator as any
         });
 

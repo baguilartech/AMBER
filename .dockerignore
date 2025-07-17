@@ -20,7 +20,9 @@ coverage
 .gitlab
 test
 *.md
+argocd
 analysis
 renovate
 reports
 wiki
+k8s
