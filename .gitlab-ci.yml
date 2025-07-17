@@ -87,7 +87,7 @@ output.logstash:
 
 processors:
   - add_host_metadata:
-      when.not.contains.tags: forwarded
+    when.not.contains.tags: forwarded
 EOF
         
         # Send logs to Logstash
@@ -226,7 +226,7 @@ output.logstash:
 
 processors:
   - add_host_metadata:
-      when.not.contains.tags: forwarded
+    when.not.contains.tags: forwarded
 EOF
         
         # Send logs to Logstash
@@ -316,7 +316,7 @@ output.logstash:
 
 processors:
   - add_host_metadata:
-      when.not.contains.tags: forwarded
+    when.not.contains.tags: forwarded
 EOF
         
         # Send logs to Logstash
