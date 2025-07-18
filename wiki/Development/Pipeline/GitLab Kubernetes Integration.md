@@ -100,10 +100,10 @@ user_access:
   access_as:
     agent: {}
   projects:
-  - id: baguilartech/amber
+  - id: discord-bots/Amber
     default_namespace: amber
   groups:
-  - id: baguilartech
+  - id: discord-bots
     default_namespace: amber
 ```
 
