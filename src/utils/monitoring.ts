@@ -138,11 +138,10 @@ export class ErrorTracking {
   }
 }
 
-// ELK Stack integration via structured logging
-// The ELK stack will collect logs via the Filebeat sidecar container
+// ELK Stack integration via HTTP or structured logging
 export class LogShipper {
   public static async sendLog(level: string, message: string, metadata?: Record<string, unknown>): Promise<void> {
-    // Create structured log entry for Filebeat to collect
+    // Create structured log entry
     const logEntry = {
       timestamp: new Date().toISOString(),
       level,
@@ -153,8 +152,30 @@ export class LogShipper {
       ...metadata
     };
 
-    // Output as structured JSON to stdout for Filebeat collection
-    console.log(JSON.stringify(logEntry));
+    // Send to ELK stack via HTTP if configured
+    if (process.env.ELK_HOST) {
+      const elkPort = process.env.ELK_PORT || '8080';
+      const elkUrl = `http://${process.env.ELK_HOST}:${elkPort}`;
+      
+      try {
+        const response = await fetch(elkUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(logEntry)
+        });
+
+        if (!response.ok) {
+          console.warn('Failed to send log to ELK Stack:', response.statusText);
+        }
+      } catch (error) {
+        console.warn('Error sending log to ELK Stack:', error);
+      }
+    } else {
+      // Fallback to console logging for Filebeat collection
+      console.log(JSON.stringify(logEntry));
+    }
   }
 
   public static async sendEvent(event: string, data: Record<string, unknown>): Promise<void> {
