@@ -1,0 +1,54 @@
+# GitOps Configuration - Automatic manifest sync from repository
+# Reference: https://docs.gitlab.com/user/clusters/agent/gitops.html
+gitops:
+  manifest_projects:
+  - id: baguilartech/amber
+    default_namespace: amber
+    paths:
+    - glob: 'k8s/**/*.yaml'
+    - glob: 'k8s/**/*.yml'
+    reconcile_timeout: 3600s
+    dry_run_strategy: none
+    prune: true
+    prune_timeout: 3600s
+    prune_propagation_policy: foreground
+    inventory_policy: must_match
+
+# CI/CD Access - Allow GitLab CI/CD jobs to deploy to cluster
+# Reference: https://docs.gitlab.com/user/clusters/agent/ci_cd_workflow.html
+ci_access:
+  projects:
+  - id: baguilartech/amber
+    default_namespace: amber
+    access_as:
+      agent: {}
+  groups:
+  - id: baguilartech
+    default_namespace: amber
+    access_as:
+      agent: {}
+
+observability:
+  logging:
+    level: info
+  gitops:
+    log_level: info
+
+remote_development:
+  enabled: false
+
+# User Access - Allow GitLab users to access Kubernetes via GitLab UI
+# Users with Developer+ role can run kubectl commands through GitLab
+# Reference: https://docs.gitlab.com/user/clusters/agent/user_access/
+user_access:
+  access_as:
+    agent: {}
+  projects:
+  - id: baguilartech/amber
+    default_namespace: amber
+  groups:
+  - id: baguilartech
+    default_namespace: amber
+
+flux:
+  enabled: false 

@@ -18,11 +18,10 @@ Configure these in GitLab Project → Settings → CI/CD → Variables:
 | `GRAFANA_HOST` | Masked | Grafana IP address |
 | `GRAFANA_API_TOKEN` | Masked | Grafana API token for annotations |
 
-### Deployment
+### GitLab Agent
 | Variable | Type | Description |
 |----------|------|-------------|
-| `ARGOCD_SERVER` | Masked | ArgoCD server (IP:port) |
-| `ARGOCD_PASSWORD` | Masked | ArgoCD admin password |
+| `GITLAB_AGENT_TOKEN` | Masked | GitLab Agent token for cluster connection |
 
 ### Application Secrets
 | Variable | Type | Description |
@@ -51,7 +50,6 @@ Configure these in GitLab Project → Settings → CI/CD → Variables:
 
 ### Observability
 - `filebeat-sidecar.yaml` - Log shipping to ELK stack
-- `../argocd/application.yaml` - ArgoCD application definition
 
 ### Deployment
 - `deploy.sh` - Deployment script that injects CI/CD variables
@@ -75,10 +73,11 @@ export SENTRY_DSN="your-sentry-dsn"
 ```
 
 ### CI/CD Deployment
-The deployment happens automatically via GitLab CI/CD when:
-1. Code is pushed to `main` branch
-2. `deploy_argocd` job is manually triggered
+The deployment happens via GitLab Agent when:
+1. Code is pushed to `main` branch (GitOps sync)
+2. `deploy_production` job is manually triggered (CI/CD deployment)
 3. CI/CD variables are properly configured
+4. GitLab Agent is connected to the cluster
 
 ## 🔍 Verification
 
@@ -107,7 +106,7 @@ The deployment automatically integrates with your observability stack:
 - **Grafana** displays dashboards and receives pipeline annotations
 - **ELK Stack** receives logs via Filebeat
 - **Sentry** tracks errors and releases
-- **ArgoCD** manages GitOps deployment
+- **GitLab Agent** manages GitOps deployment and CI/CD integration
 
 ## 🔒 Security Best Practices
 
