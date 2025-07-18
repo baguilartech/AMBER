@@ -113,7 +113,8 @@ export class YouTubeService extends BaseMusicService {
       }
       
       if (!format) {
-        logger.error(`No suitable audio format found for ${song.title}. Available formats: ${info.formats.map(f => `${f.itag}:${f.container}:${f.hasAudio}:${f.hasVideo}`).join(', ')}`);
+        const formatDetails = info.formats.map(f => `${f.itag}:${f.container}:${f.hasAudio}:${f.hasVideo}`).join(', ');
+        logger.error(`No suitable audio format found for ${song.title}. Available formats: ${formatDetails}`);
         throw new Error('No suitable audio format found');
       }
       

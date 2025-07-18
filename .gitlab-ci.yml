@@ -92,7 +92,7 @@ variables:
             apt-get update && apt-get install -y curl
           fi
         fi
-        curl -X POST "http://${GRAFANA_HOST}:3000/api/annotations" \
+        curl -X POST "https://${GRAFANA_HOST}:3000/api/annotations" \
           -H "Authorization: Bearer $GRAFANA_API_TOKEN" \
           -H "Content-Type: application/json" \
           -d '{

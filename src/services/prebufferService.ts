@@ -9,8 +9,8 @@ interface PrebufferedSong extends Song {
 }
 
 export class PrebufferService {
-  private prebufferCache: Map<string, PrebufferedSong> = new Map();
-  private maxCacheSize = 50; // Limit cache size to prevent memory issues
+  private readonly prebufferCache: Map<string, PrebufferedSong> = new Map();
+  private readonly maxCacheSize = 50; // Limit cache size to prevent memory issues
   
   /**
    * Prebuffer the next 1-2 songs in the queue while current song is playing

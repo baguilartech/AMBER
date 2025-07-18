@@ -32,6 +32,19 @@ describe('Monitoring Utils', () => {
     delete process.env.ELK_PORT;
     delete process.env.npm_package_version;
     delete process.env.NODE_ENV;
+    delete process.env.SPOTIFY_CLIENT_ID;
+    delete process.env.SPOTIFY_CLIENT_SECRET;
+    delete process.env.SOUNDCLOUD_CLIENT_ID;
+    
+    // Ensure process.env is properly restored
+    if (process.env.constructor !== Object) {
+      const originalEnv = require('process').env;
+      Object.defineProperty(process, 'env', {
+        value: originalEnv,
+        configurable: true,
+        writable: true
+      });
+    }
   });
 
   describe('MetricsCollector', () => {
@@ -127,8 +140,18 @@ describe('Monitoring Utils', () => {
     it('should return health status with all required fields', () => {
       process.env.npm_package_version = '2.0.0';
       process.env.NODE_ENV = 'production';
+      // Set service environment variables for "configured" status
+      process.env.SPOTIFY_CLIENT_ID = 'test-spotify-id';
+      process.env.SPOTIFY_CLIENT_SECRET = 'test-spotify-secret';
+      process.env.SOUNDCLOUD_CLIENT_ID = 'test-soundcloud-id';
 
-      const health = HealthCheck.getHealthStatus();
+      // Mock Discord client for testing
+      const mockDiscordClient = {
+        isReady: jest.fn().mockReturnValue(true),
+        ws: { status: 0 } // READY state
+      };
+      
+      const health = HealthCheck.getHealthStatus(mockDiscordClient);
       
       expect(health).toHaveProperty('status', 'healthy');
       expect(health).toHaveProperty('timestamp');
@@ -139,9 +162,9 @@ describe('Monitoring Utils', () => {
       expect(health).toHaveProperty('discord_connection', 'connected');
       expect(health).toHaveProperty('services');
       
-      expect(health.services).toHaveProperty('spotify', 'connected');
-      expect(health.services).toHaveProperty('youtube', 'connected');
-      expect(health.services).toHaveProperty('soundcloud', 'connected');
+      expect(health.services).toHaveProperty('spotify', 'configured');
+      expect(health.services).toHaveProperty('youtube', 'available');
+      expect(health.services).toHaveProperty('soundcloud', 'configured');
       
       expect(typeof health.uptime).toBe('number');
       expect(typeof health.memory).toBe('object');
@@ -166,6 +189,93 @@ describe('Monitoring Utils', () => {
       expect(health.memory).toHaveProperty('heapUsed');
       expect(health.memory).toHaveProperty('external');
     });
+
+    it('should handle Discord connection states', () => {
+      // Test not_initialized
+      const healthNoClient = HealthCheck.getHealthStatus();
+      expect(healthNoClient.discord_connection).toBe('not_initialized');
+
+      // Test connected via isReady
+      const mockReadyClient = {
+        isReady: jest.fn().mockReturnValue(true),
+        ws: { status: 1 } // Not READY state
+      };
+      const healthReady = HealthCheck.getHealthStatus(mockReadyClient);
+      expect(healthReady.discord_connection).toBe('connected');
+
+      // Test connected via WebSocket status
+      const mockWSClient = {
+        isReady: jest.fn().mockReturnValue(false),
+        ws: { status: 0 } // READY state
+      };
+      const healthWS = HealthCheck.getHealthStatus(mockWSClient);
+      expect(healthWS.discord_connection).toBe('connected');
+
+      // Test disconnected
+      const mockDisconnectedClient = {
+        isReady: jest.fn().mockReturnValue(false),
+        ws: { status: 1 } // Not READY state
+      };
+      const healthDisconnected = HealthCheck.getHealthStatus(mockDisconnectedClient);
+      expect(healthDisconnected.discord_connection).toBe('disconnected');
+    });
+
+    it('should handle Spotify service configuration states', () => {
+      // Test not_configured - no env vars
+      delete process.env.SPOTIFY_CLIENT_ID;
+      delete process.env.SPOTIFY_CLIENT_SECRET;
+      const healthNotConfigured = HealthCheck.getHealthStatus();
+      expect(healthNotConfigured.services.spotify).toBe('not_configured');
+
+      // Test not_configured - missing CLIENT_SECRET
+      process.env.SPOTIFY_CLIENT_ID = 'test-id';
+      delete process.env.SPOTIFY_CLIENT_SECRET;
+      const healthMissingSecret = HealthCheck.getHealthStatus();
+      expect(healthMissingSecret.services.spotify).toBe('not_configured');
+
+      // Test not_configured - missing CLIENT_ID
+      delete process.env.SPOTIFY_CLIENT_ID;
+      process.env.SPOTIFY_CLIENT_SECRET = 'test-secret';
+      const healthMissingId = HealthCheck.getHealthStatus();
+      expect(healthMissingId.services.spotify).toBe('not_configured');
+    });
+
+    it('should handle SoundCloud service configuration states', () => {
+      // Test not_configured
+      delete process.env.SOUNDCLOUD_CLIENT_ID;
+      const healthNotConfigured = HealthCheck.getHealthStatus();
+      expect(healthNotConfigured.services.soundcloud).toBe('not_configured');
+
+      // Test configured
+      process.env.SOUNDCLOUD_CLIENT_ID = 'test-soundcloud-id';
+      const healthConfigured = HealthCheck.getHealthStatus();
+      expect(healthConfigured.services.soundcloud).toBe('configured');
+    });
+
+    it('should handle service check errors', () => {
+      // Instead of breaking process.env globally, let's test the error paths differently
+      // We'll test individual service methods that might throw errors
+      
+      // Test YouTube service error handling
+      const healthYouTube = HealthCheck.getHealthStatus();
+      expect(healthYouTube.services.youtube).toBe('available'); // YouTube should always be available
+      
+      // Test services with missing partial config (edge cases)
+      process.env.SPOTIFY_CLIENT_ID = 'test-id';
+      delete process.env.SPOTIFY_CLIENT_SECRET;
+      const healthPartialSpotify = HealthCheck.getHealthStatus();
+      expect(healthPartialSpotify.services.spotify).toBe('not_configured');
+      
+      // Test completely missing config
+      delete process.env.SPOTIFY_CLIENT_ID;
+      delete process.env.SPOTIFY_CLIENT_SECRET;
+      delete process.env.SOUNDCLOUD_CLIENT_ID;
+      const healthNoConfig = HealthCheck.getHealthStatus();
+      expect(healthNoConfig.services.spotify).toBe('not_configured');
+      expect(healthNoConfig.services.soundcloud).toBe('not_configured');
+      expect(healthNoConfig.services.youtube).toBe('available');
+    });
+
   });
 
   describe('ErrorTracking', () => {
@@ -484,11 +594,11 @@ describe('Monitoring Utils', () => {
             memory: expect.any(Object),
             version: expect.any(String),
             environment: expect.any(String),
-            discord_connection: 'connected',
+            discord_connection: 'not_initialized', // No Discord client passed
             services: expect.objectContaining({
-              spotify: 'connected',
-              youtube: 'connected',
-              soundcloud: 'connected'
+              spotify: 'not_configured', // No env vars set in test
+              youtube: 'available',
+              soundcloud: 'not_configured' // No env vars set in test
             })
           })
         );

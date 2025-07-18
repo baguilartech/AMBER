@@ -3,14 +3,14 @@ FROM node:20.18.1-bookworm-slim
 # Install security updates and dependencies
 RUN apt-get update && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
-    ffmpeg \
-    libavcodec-extra \
-    libopus0 \
-    libopus-dev \
-    python3 \
-    make \
-    g++ \
     ca-certificates \
+    ffmpeg \
+    g++ \
+    libavcodec-extra \
+    libopus-dev \
+    libopus0 \
+    make \
+    python3 \
     && apt-get autoremove -y \
     && apt-get autoclean \
     && rm -rf /var/lib/apt/lists/* \

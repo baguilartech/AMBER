@@ -100,7 +100,7 @@ export class SoundCloudService extends BaseMusicService {
 
       return this.createSong({
         title: track.title,
-        artist: track.user?.username || 'Unknown Artist',
+        artist: track.user?.username ?? 'Unknown Artist',
         url: url,
         duration: Math.floor(track.duration / 1000),
         thumbnail: track.artwork_url,

@@ -551,7 +551,9 @@ describe('AmberBot Index', () => {
       // Give some time for async operations
       await new Promise(resolve => setTimeout(resolve, 50));
     } catch (error) {
-      // This might catch any immediate synchronous errors
+      // Handle synchronous errors from module loading
+      mockLogger.error('Module loading error:', error);
+      expect(error).toBeInstanceOf(Error);
     }
 
     // Give more time for the promise rejection to be handled

@@ -20,8 +20,8 @@ export class MusicPlayer {
   private players: Map<string, AudioPlayer> = new Map();
   private connections: Map<string, VoiceConnection> = new Map();
   private queueManager: QueueManager;
-  private prebufferService: PrebufferService;
-  private skipInProgress: Map<string, boolean> = new Map();
+  private readonly prebufferService: PrebufferService;
+  private readonly skipInProgress: Map<string, boolean> = new Map();
 
   constructor(queueManager: QueueManager) {
     this.queueManager = queueManager;
