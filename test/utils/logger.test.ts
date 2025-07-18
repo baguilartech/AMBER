@@ -148,6 +148,45 @@ describe('Logger', () => {
     });
   });
 
+  describe('infoWithLink method', () => {
+    it('should log info messages with hyperlink formatting', () => {
+      logger.infoWithLink('Check this out:', 'https://example.com');
+      
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/\[.*\] \[INFO\] Check this out: \x1b]8;;https:\/\/example\.com\x1b\\https:\/\/example\.com\x1b]8;;\x1b\\/)
+      );
+    });
+
+    it('should include additional arguments in hyperlink logs', () => {
+      const extraData = { key: 'value' };
+      logger.infoWithLink('Visit site:', 'https://test.com', extraData);
+      
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/\[.*\] \[INFO\] Visit site: \x1b]8;;https:\/\/test\.com\x1b\\https:\/\/test\.com\x1b]8;;\x1b\\/),
+        extraData
+      );
+    });
+
+    it('should respect log level when using infoWithLink', () => {
+      // Set environment to error level
+      const originalLogLevel = process.env.LOG_LEVEL;
+      process.env.LOG_LEVEL = 'error';
+      
+      // Re-import logger to get new instance with error level
+      jest.resetModules();
+      const { logger: errorLogger } = require('../../src/utils/logger');
+      
+      consoleSpy.mockClear();
+      
+      errorLogger.infoWithLink('Should not appear', 'https://example.com');
+      
+      expect(consoleSpy).not.toHaveBeenCalled();
+      
+      // Restore original log level
+      process.env.LOG_LEVEL = originalLogLevel;
+    });
+  });
+
   describe('LogLevel enum', () => {
     it('should have correct numeric values', () => {
       expect(LogLevel.ERROR).toBe(0);

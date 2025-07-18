@@ -99,7 +99,7 @@ export class HealthCheck {
     }
     
     // Check if client is ready and connected
-    if (discordClient.isReady && discordClient.isReady()) {
+    if (discordClient.isReady?.()) {
       return 'connected';
     }
     
@@ -126,13 +126,9 @@ export class HealthCheck {
   }
 
   private static checkYouTubeService(): string {
-    try {
-      // YouTube service uses ytdl-core which doesn't require API keys
-      // Check if the service can be imported/used
-      return 'available';
-    } catch (error) {
-      return 'error';
-    }
+    // YouTube service uses ytdl-core which doesn't require API keys
+    // Always available since it doesn't depend on external configuration
+    return 'available';
   }
 
   private static checkSoundCloudService(): string {

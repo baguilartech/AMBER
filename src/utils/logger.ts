@@ -32,6 +32,14 @@ class Logger {
     }
   }
 
+  private logWithHyperlink(level: LogLevel, message: string, url: string, ...args: unknown[]): void {
+    if (level <= this.logLevel) {
+      const timestamp = new Date().toISOString();
+      const levelName = LogLevel[level];
+      console.log(`[${timestamp}] [${levelName}] ${message} \x1b]8;;${url}\x1b\\${url}\x1b]8;;\x1b\\`, ...args);
+    }
+  }
+
   error(message: string, ...args: unknown[]): void {
     this.log(LogLevel.ERROR, message, ...args);
   }
@@ -46,6 +54,10 @@ class Logger {
 
   debug(message: string, ...args: unknown[]): void {
     this.log(LogLevel.DEBUG, message, ...args);
+  }
+
+  infoWithLink(message: string, url: string, ...args: unknown[]): void {
+    this.logWithHyperlink(LogLevel.INFO, message, url, ...args);
   }
 }
 

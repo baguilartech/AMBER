@@ -60,7 +60,8 @@ describe('AmberBot Index', () => {
     const mockLogger = {
       info: jest.fn(),
       error: jest.fn(),
-      debug: jest.fn()
+      debug: jest.fn(),
+      infoWithLink: jest.fn()
     };
 
     jest.doMock('../src/utils/logger', () => ({
@@ -201,7 +202,8 @@ describe('AmberBot Index', () => {
     const mockLogger = {
       info: jest.fn(),
       error: jest.fn(),
-      debug: jest.fn()
+      debug: jest.fn(),
+      infoWithLink: jest.fn()
     };
 
     const mockRest = {
@@ -290,7 +292,8 @@ describe('AmberBot Index', () => {
     const mockLogger = {
       info: jest.fn(),
       error: jest.fn(),
-      debug: jest.fn()
+      debug: jest.fn(),
+      infoWithLink: jest.fn()
     };
 
     const mockRest = {
@@ -375,7 +378,8 @@ describe('AmberBot Index', () => {
     const mockLogger = {
       info: jest.fn(),
       error: jest.fn(),
-      debug: jest.fn()
+      debug: jest.fn(),
+      infoWithLink: jest.fn()
     };
 
     // Mock config to throw error
@@ -438,7 +442,8 @@ describe('AmberBot Index', () => {
     const mockLogger = {
       info: jest.fn(),
       error: jest.fn(),
-      debug: jest.fn()
+      debug: jest.fn(),
+      infoWithLink: jest.fn()
     };
 
     jest.doMock('../src/utils/logger', () => ({
@@ -463,7 +468,8 @@ describe('AmberBot Index', () => {
     const mockLogger = {
       info: jest.fn(),
       error: jest.fn(),
-      debug: jest.fn()
+      debug: jest.fn(),
+      infoWithLink: jest.fn()
     };
 
     // Mock logger
@@ -490,7 +496,8 @@ describe('AmberBot Index', () => {
     const mockLogger = {
       info: jest.fn(),
       error: jest.fn(),
-      debug: jest.fn()
+      debug: jest.fn(),
+      infoWithLink: jest.fn()
     };
 
     // Reset modules completely
@@ -574,7 +581,8 @@ describe('AmberBot Index', () => {
     const mockLogger = {
       info: jest.fn(),
       error: jest.fn(),
-      debug: jest.fn()
+      debug: jest.fn(),
+      infoWithLink: jest.fn()
     };
 
     // Simulate the exact bot.start().catch() scenario from lines 128-130

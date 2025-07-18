@@ -54,6 +54,9 @@ class AmberBot {
     this.client.once('ready', async () => {
       logger.info(`Logged in as ${this.client.user?.tag}`);
       await this.registerCommands();
+      
+      const inviteUrl = `https://discord.com/oauth2/authorize?client_id=${this.client.user?.id}&scope=bot%20applications.commands&permissions=36700160`;
+      logger.infoWithLink('Bot is ready! Invite me to your server:', inviteUrl);
     });
 
     this.client.on('interactionCreate', async (interaction) => {
