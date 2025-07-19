@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: amber
+  labels:
+    name: amber
+    app: discord-bot
+    monitoring: enabled
+  annotations:
+    prometheus.io/scrape: "true"

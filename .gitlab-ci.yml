@@ -1,0 +1,550 @@
+# GitLab CI/CD Pipeline for Amber Discord Bot
+# Simplified Auto-DevOps approach
+
+image: 
+  name: sonarsource/sonar-scanner-cli:11
+  entrypoint: [""]
+
+stages:
+- build-sonar
+- build
+- test
+- security
+- deploy
+- review
+- dast
+- staging
+- canary
+- production
+- incremental rollout 10%
+- incremental rollout 25%
+- incremental rollout 50%
+- incremental rollout 100%
+- performance
+- cleanup
+
+variables:
+  SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"  # Defines the location of the analysis task cache
+  GIT_DEPTH: "0"  # Tells git to fetch all the branches of the project, required by the analysis task
+  NODE_VERSION: "20"
+  npm_config_cache: "$CI_PROJECT_DIR/.npm"
+  # Auto-DevOps configuration
+  POSTGRES_ENABLED: "false"
+  POSTGRES_MANAGED: "false"
+  AUTO_DEVOPS_CHART: "auto-deploy-app"
+  # Container registry configuration
+  DOCKER_TLS_CERTDIR: "/certs"
+  CONTAINER_IMAGE: "${CI_REGISTRY_IMAGE}/discord-bot"
+  CS_IMAGE: "${CI_REGISTRY_IMAGE}/discord-bot:${CI_COMMIT_SHA}"
+  # Observability configuration
+  PROMETHEUS_PUSHGATEWAY: "http://${GRAFANA_HOST}:9091"
+
+# Cache template for Node.js projects
+.cache_template: &cache_template
+  cache:
+    key: 
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - .npm/
+    policy: pull-push
+
+# Observability integration template
+.observability_template: &observability_template
+  after_script:
+    # Send pipeline metrics to ELK Stack via Logstash beats (uses CI/CD variables: ELK_HOST, ELK_PORT)
+    - |
+      if [ -n "$ELK_HOST" ] && [ -n "$ELK_PORT" ]; then
+        # Install curl if not available
+        if ! command -v curl >/dev/null 2>&1; then
+          if command -v apk >/dev/null 2>&1; then
+            apk add --no-cache curl
+          elif command -v apt-get >/dev/null 2>&1; then
+            apt-get update && apt-get install -y curl
+          fi
+        fi
+        
+        # Create pipeline metrics JSON
+        METRICS_JSON='{
+          "timestamp": "'$(date -Iseconds)'",
+          "event": "pipeline_job",
+          "job_name": "'${CI_JOB_NAME}'",
+          "job_status": "'${CI_JOB_STATUS:-unknown}'",
+          "project": "'${CI_PROJECT_NAME}'",
+          "commit": "'${CI_COMMIT_SHA}'",
+          "branch": "'${CI_COMMIT_REF_NAME}'",
+          "pipeline_id": "'${CI_PIPELINE_ID}'",
+          "stage": "'${CI_JOB_STAGE}'"
+        }'
+        
+        # Send metrics directly to Logstash
+        curl -X POST "http://${ELK_HOST}:${ELK_PORT}" \
+          -H "Content-Type: application/json" \
+          -d "$METRICS_JSON" || echo "Failed to send metrics to ELK"
+      fi
+    # Send metrics to Prometheus Push Gateway (uses CI/CD variable: PROMETHEUS_PUSHGATEWAY)
+    - |
+      if [ -n "$PROMETHEUS_PUSHGATEWAY" ]; then
+        # Install curl if not available (reuse installation logic from above)
+        if ! command -v curl >/dev/null 2>&1; then
+          if command -v apk >/dev/null 2>&1; then
+            apk add --no-cache curl
+          elif command -v apt-get >/dev/null 2>&1; then
+            apt-get update && apt-get install -y curl
+          fi
+        fi
+        
+        # Calculate job duration and status
+        if [ -n "$CI_JOB_STARTED_AT" ]; then
+          JOB_START_TIME=$(date -d "$CI_JOB_STARTED_AT" +%s 2>/dev/null || echo $(date +%s))
+        else
+          JOB_START_TIME=$(date +%s)
+        fi
+        JOB_DURATION=$(($(date +%s) - JOB_START_TIME))
+        JOB_SUCCESS=$([ "${CI_JOB_STATUS:-unknown}" = "success" ] && echo 1 || echo 0)
+        
+        # Send pipeline metrics to Prometheus Push Gateway
+        printf "gitlab_pipeline_duration_seconds{project=\"%s\",stage=\"%s\",job=\"%s\",branch=\"%s\",pipeline_id=\"%s\"} %s\n" \
+          "${CI_PROJECT_NAME}" "${CI_JOB_STAGE}" "${CI_JOB_NAME}" "${CI_COMMIT_REF_NAME}" "${CI_PIPELINE_ID}" "${JOB_DURATION}" | \
+          curl -X POST "${PROMETHEUS_PUSHGATEWAY}/metrics/job/gitlab-ci/instance/${CI_JOB_ID}" --data-binary @-
+        echo "Metrics sent to Prometheus Push Gateway"
+      fi
+    # Send annotations to Grafana (uses CI/CD variables: GRAFANA_HOST, GRAFANA_API_TOKEN)
+    - |
+      if [ -n "$GRAFANA_HOST" ] && [ -n "$GRAFANA_API_TOKEN" ]; then
+        # Install curl and glibc if not available
+        if ! command -v curl >/dev/null 2>&1; then
+          if command -v apk >/dev/null 2>&1; then
+            apk add --no-cache curl gcompat
+          elif command -v apt-get >/dev/null 2>&1; then
+            apt-get update && apt-get install -y curl
+          fi
+        fi
+        curl -X POST "https://${GRAFANA_HOST}:3000/api/annotations" \
+          -H "Authorization: Bearer $GRAFANA_API_TOKEN" \
+          -H "Content-Type: application/json" \
+          --insecure \
+          -d '{
+            "text": "Pipeline '${CI_JOB_STATUS:-unknown}': '${CI_JOB_NAME}' in '${CI_PROJECT_NAME}'",
+            "tags": ["pipeline", "'${CI_PROJECT_NAME}'", "'${CI_COMMIT_REF_NAME}'", "'${CI_JOB_STAGE}'"],
+            "time": '$(date +%s)'000
+          }' || echo "Failed to send annotation to Grafana"
+      fi
+
+# Override Auto-DevOps build job to handle Node.js
+build:
+  stage: build
+  image: node:20
+  <<: *cache_template
+  before_script:
+    - apt-get update && apt-get install -y python3 make g++
+    - npm ci --cache .npm --prefer-offline
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+      - node_modules/
+    expire_in: 1 hour
+
+# Override Auto-DevOps test job
+test:
+  stage: test
+  image: node:20
+  services: []  # No external services needed
+  before_script:
+    - echo "Using artifacts from build job"
+    - npm ci --cache .npm --prefer-offline
+  script:
+    - npm run test:ci
+  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
+  artifacts:
+    when: always
+    reports:
+      junit: reports/junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/cobertura-coverage.xml
+    paths:
+      - coverage/
+      - reports/
+    expire_in: 1 week
+  <<: *observability_template
+
+# Override linting (run in test stage)
+lint:
+  stage: test
+  image: node:20
+  services: []
+  script:
+    - npm run lint
+    - npm run lint:ci
+  artifacts:
+    reports:
+      junit: reports/lint-results.xml
+    when: always
+    expire_in: 1 week
+  <<: *observability_template
+
+# SonarQube Analysis (custom)
+sonar_scan:
+  stage: test
+  image: sonarsource/sonar-scanner-cli:11
+  needs:
+    - test
+  dependencies:
+    - test
+  cache:
+    policy: pull-push
+    key: "sonar-cache-$CI_COMMIT_REF_SLUG"
+    paths:
+      - "${SONAR_USER_HOME}/cache"
+      - sonar-scanner/
+  before_script:
+    - |
+      if [ -z "$SONAR_HOST_URL" ]; then
+        echo "SONAR_HOST_URL is not set. Skipping SonarQube analysis."
+        exit 0
+      fi
+      if [ -z "$SONAR_TOKEN" ]; then
+        echo "SONAR_TOKEN is not set. Skipping SonarQube analysis."
+        exit 0
+      fi
+      if [[ ! "$SONAR_HOST_URL" =~ ^https?:// ]]; then
+        export SONAR_HOST_URL="http://${SONAR_HOST_URL}"
+      fi
+  script: 
+    - sonar-scanner -Dsonar.host.url="${SONAR_HOST_URL}"
+    # Send SonarQube scan event to ELK via Logstash (uses CI/CD variables: ELK_HOST, ELK_PORT)
+    - |
+      if [ -n "$ELK_HOST" ] && [ -n "$ELK_PORT" ]; then
+        # Install curl if not available
+        if ! command -v curl >/dev/null 2>&1; then
+          if command -v apk >/dev/null 2>&1; then
+            apk add --no-cache curl
+          elif command -v apt-get >/dev/null 2>&1; then
+            apt-get update && apt-get install -y curl
+          fi
+        fi
+        
+        # Create SonarQube metrics JSON
+        SONAR_METRICS_JSON='{
+          "timestamp": "'$(date -Iseconds)'",
+          "event": "sonarqube_scan",
+          "project": "'${CI_PROJECT_NAME}'",
+          "commit": "'${CI_COMMIT_SHA}'",
+          "branch": "'${CI_COMMIT_REF_NAME}'",
+          "sonar_host": "'${SONAR_HOST_URL}'"
+        }'
+        
+        # Send metrics directly to Logstash
+        curl -X POST "http://${ELK_HOST}:${ELK_PORT}" \
+          -H "Content-Type: application/json" \
+          -d "$SONAR_METRICS_JSON" || echo "Failed to send SonarQube metrics to ELK"
+      fi
+  allow_failure: true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH == 'master'
+    - if: $CI_COMMIT_BRANCH == 'main'
+    - if: $CI_COMMIT_BRANCH == 'develop'
+  <<: *observability_template
+
+# Pages for coverage reports
+pages:
+  stage: deploy
+  dependencies:
+    - test
+  script:
+    - mkdir public
+    - cp -r coverage/lcov-report/* public/
+  artifacts:
+    paths:
+      - public
+    expire_in: 30 days
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'main'
+
+# Container build and push job
+build-container:
+  stage: build
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  variables:
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_DRIVER: overlay2
+  before_script:
+    - |
+      # Wait for Docker daemon to be ready
+      until docker info >/dev/null 2>&1; do
+        echo "Waiting for Docker daemon..."
+        sleep 1
+      done
+    - echo "Logging into GitLab Container Registry..."
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+  script:
+    - echo "Building Discord bot container image..."
+    - docker build -t $CONTAINER_IMAGE:$CI_COMMIT_SHA -t $CONTAINER_IMAGE:latest .
+    - echo "Pushing container image to registry..."
+    - docker push $CONTAINER_IMAGE:$CI_COMMIT_SHA
+    - docker push $CONTAINER_IMAGE:latest
+    # Send container build event to ELK via Logstash (uses CI/CD variables: ELK_HOST, ELK_PORT)
+    - |
+      if [ -n "$ELK_HOST" ] && [ -n "$ELK_PORT" ]; then
+        # Install curl if not available
+        if ! command -v curl >/dev/null 2>&1; then
+          if command -v apk >/dev/null 2>&1; then
+            apk add --no-cache curl
+          elif command -v apt-get >/dev/null 2>&1; then
+            apt-get update && apt-get install -y curl
+          fi
+        fi
+        
+        # Create container build metrics JSON
+        BUILD_METRICS_JSON='{
+          "timestamp": "'$(date -Iseconds)'",
+          "event": "container_build",
+          "project": "'${CI_PROJECT_NAME}'",
+          "commit": "'${CI_COMMIT_SHA}'",
+          "branch": "'${CI_COMMIT_REF_NAME}'",
+          "image": "'${CONTAINER_IMAGE}:${CI_COMMIT_SHA}'"
+        }'
+        
+        # Send metrics directly to Logstash
+        curl -X POST "http://${ELK_HOST}:${ELK_PORT}" \
+          -H "Content-Type: application/json" \
+          -d "$BUILD_METRICS_JSON" || echo "Failed to send build metrics to ELK"
+      fi
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'main'
+    - if: $CI_COMMIT_BRANCH == 'develop'
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      changes:
+        - Dockerfile
+        - package*.json
+        - src/**/*
+  <<: *observability_template
+
+# Container Security Scanning
+container_scanning:
+  stage: security
+  variables:
+    CS_IMAGE: "${CI_REGISTRY_IMAGE}/discord-bot:${CI_COMMIT_SHA}"
+    CS_DISABLE_DEPENDENCY_LIST: "true"
+  dependencies:
+    - build-container
+  needs:
+    - build-container
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'main'
+    - if: $CI_COMMIT_BRANCH == 'develop'
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+  allow_failure: true
+
+# Secret Detection (exclude node_modules)
+secret_detection:
+  variables:
+    SECRET_DETECTION_EXCLUDED_PATHS: "node_modules,coverage,dist,reports"
+
+# Auto-DevOps will handle code_quality automatically
+
+# Release job for tagged versions
+# release:
+#   stage: deploy
+#   image: node:20
+#   <<: *cache_template
+#   before_script:
+#     - npm ci --cache .npm --prefer-offline
+#     - |
+#       # Configure npm authentication for GitHub registry
+#       echo "@baguilartech:registry=https://npm.pkg.github.com/" >> .npmrc
+#       echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> .npmrc
+#   script:
+#     - npm run build
+#     - npm run test:ci
+#     - npm run lint
+#     - echo "Creating GitLab release for tag $CI_COMMIT_TAG"
+#     - |
+#       if [ -n "$CI_COMMIT_TAG" ]; then
+#         echo "Publishing to GitHub Package Registry..."
+#         npm publish
+#       fi
+#   artifacts:
+#     paths:
+#       - dist/
+#     expire_in: 1 week
+#   rules:
+#     - if: $CI_COMMIT_TAG
+
+# Release container image for tagged versions
+release-container:
+  stage: deploy
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  variables:
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_DRIVER: overlay2
+  before_script:
+    - |
+      until docker info >/dev/null 2>&1; do
+        echo "Waiting for Docker daemon..."
+        sleep 1
+      done
+    - echo "Logging into GitLab Container Registry..."
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+  script:
+    - |
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        VERSION=${CI_COMMIT_TAG#v}
+        echo "Building release container for version $VERSION..."
+        docker build -t $CONTAINER_IMAGE:$VERSION -t $CONTAINER_IMAGE:latest .
+        docker push $CONTAINER_IMAGE:$VERSION
+        docker push $CONTAINER_IMAGE:latest
+        echo "Released container images:"
+        echo "  - $CONTAINER_IMAGE:$VERSION"
+        echo "  - $CONTAINER_IMAGE:latest"
+      fi
+  rules:
+    - if: $CI_COMMIT_TAG
+
+# Wiki publishing job
+publish-wiki:
+  stage: deploy
+  image: alpine:latest
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  before_script:
+    - apk add --no-cache git rsync
+    - git config --global user.email "gitlab-ci@${CI_SERVER_HOST}"
+    - git config --global user.name "GitLab CI"
+    - |
+      # Check if required variables are set
+      if [ -z "$WIKI_ACCESS_TOKEN" ]; then
+        echo "ERROR: WIKI_ACCESS_TOKEN is not set."
+        echo "Please set this variable in your GitLab project settings with a project access token that has 'write_repository' scope."
+        exit 1
+      fi
+  script:
+    - echo "Publishing wiki from repository..."
+    - |
+      # Clone the wiki repository
+      git clone https://project-token:${WIKI_ACCESS_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.wiki.git wiki-repo
+      
+      # Navigate to wiki repo
+      cd wiki-repo
+      
+      # Clear existing content (preserve .git directory)
+      find . -type f ! -path "./.git/*" -delete
+      find . -type d ! -path "./.git*" -empty -delete 2>/dev/null || true
+      
+      # Copy new content from wiki directory
+      rsync -av --exclude='.git*' ${CI_PROJECT_DIR}/wiki/ ./
+      
+      # Add all changes
+      git add . || true
+      
+      # Check if there are changes to commit
+      if git diff --cached --quiet; then
+        echo "No changes detected in wiki content"
+        exit 0
+      else
+        echo "Changes detected, committing wiki updates..."
+        git commit -m "Update wiki from ${CI_COMMIT_SHA:0:8} - ${CI_COMMIT_TITLE}"
+        git push origin main
+        echo "Wiki updated successfully"
+      fi
+  after_script:
+    - echo "Wiki publishing completed"
+  when: always
+
+# Include Auto-DevOps template - This does all the heavy lifting!
+include:
+  - template: Auto-DevOps.gitlab-ci.yml
+  - template: Security/Container-Scanning.gitlab-ci.yml
+
+# Disable Auto-DevOps jobs we don't want
+staging:
+  rules:
+    - when: never
+
+canary:
+  rules:
+    - when: never
+
+production:
+  rules:
+    - when: never
+
+browser_performance:
+  before_script:
+    - echo "${ENVIRONMENT_URL}" > environment_url.txt
+
+# ==========================================
+# OBSERVABILITY INTEGRATIONS
+# ==========================================
+
+# Sentry release management (uses CI/CD variables: SENTRY_AUTH_TOKEN, SENTRY_ORG, SENTRY_PROJECT)
+sentry_release:
+  stage: deploy
+  image: getsentry/sentry-cli:latest
+  script:
+    - |
+      if [ -n "$SENTRY_AUTH_TOKEN" ] && [ -n "$SENTRY_ORG" ] && [ -n "$SENTRY_PROJECT" ]; then
+        echo "Creating Sentry release..."
+        sentry-cli releases new $CI_COMMIT_SHA
+        sentry-cli releases set-commits --auto $CI_COMMIT_SHA
+        sentry-cli releases finalize $CI_COMMIT_SHA
+        echo "Sentry release created successfully"
+      else
+        echo "Sentry variables not configured, skipping release creation"
+      fi
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'main'
+    - if: $CI_COMMIT_TAG
+  allow_failure: true
+  <<: *observability_template
+
+# GitLab Agent deployment for production (recommended)
+deploy_production:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache kubectl gettext bash  # install kubectl, envsubst and bash
+  script:
+    - echo "Deploying to production via GitLab Agent..."
+    # Export environment variables for substitution
+    - export DISCORD_TOKEN="$DISCORD_TOKEN"
+    - export SPOTIFY_CLIENT_ID="$SPOTIFY_CLIENT_ID" 
+    - export SPOTIFY_CLIENT_SECRET="$SPOTIFY_CLIENT_SECRET"
+    - export SENTRY_DSN="$SENTRY_DSN"
+    - export ELK_HOST="$ELK_HOST"
+    - export ELK_PORT="$ELK_PORT"
+    - export GRAFANA_HOST="$GRAFANA_HOST"
+    # Create environment URL file for Auto-DevOps
+    - echo "${ENVIRONMENT_URL}" > environment_url.txt
+    # Run deployment script
+    - cd k8s
+    - ls -la
+    - bash deploy.sh
+    - echo "Production deployment completed via GitLab Agent"
+  environment:
+    name: production
+    url: ${ENVIRONMENT_URL}  # AMBER is a Discord bot - URL points to cluster monitoring
+    kubernetes:
+      namespace: amber
+    deployment_tier: production
+    action: start
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'main'
+  needs:
+    - build-container
+  <<: *observability_template
+
+
+

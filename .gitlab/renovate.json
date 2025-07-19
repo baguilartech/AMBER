@@ -1,0 +1,77 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:base",
+    "schedule:weeklyNonOfficeHours"
+  ],
+  "timezone": "America/Los_Angeles",
+  "labels": ["dependencies"],
+  "assignees": ["baguilartech"],
+  "reviewers": ["baguilartech"],
+  "prHourlyLimit": 2,
+  "prConcurrentLimit": 10,
+  "commitMessagePrefix": "deps:",
+  "commitMessageAction": "update",
+  "commitMessageTopic": "{{depName}}",
+  "commitMessageExtra": "to {{#if isPinDigest}}{{{newDigestShort}}}{{else}}{{#if isMajor}}{{prettyNewMajor}}{{else}}{{#if isSingleVersion}}{{prettyNewVersion}}{{else}}{{#if newValue}}{{{newValue}}}{{else}}{{{newDigestShort}}}{{/if}}{{/if}}{{/if}}{{/if}}",
+  "packageRules": [
+    {
+      "matchPackagePatterns": ["^@types/"],
+      "groupName": "TypeScript definitions",
+      "automerge": true,
+      "major": {
+        "automerge": false
+      }
+    },
+    {
+      "matchPackagePatterns": ["^@discordjs/", "discord.js"],
+      "groupName": "Discord.js dependencies",
+      "schedule": ["before 10am on monday"]
+    },
+    {
+      "matchPackagePatterns": ["eslint", "jest", "typescript", "tsx"],
+      "groupName": "Development tools",
+      "automerge": true,
+      "major": {
+        "automerge": false
+      }
+    },
+    {
+      "matchDepTypes": ["devDependencies"],
+      "automerge": true,
+      "major": {
+        "automerge": false
+      }
+    },
+    {
+      "matchUpdateTypes": ["patch"],
+      "automerge": true
+    },
+    {
+      "matchUpdateTypes": ["minor"],
+      "matchDepTypes": ["devDependencies"],
+      "automerge": true
+    },
+    {
+      "matchPackagePatterns": ["^node$"],
+      "enabled": false
+    }
+  ],
+  "docker": {
+    "enabled": true,
+    "pinDigests": true
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 10am on monday"]
+  },
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "schedule": ["at any time"]
+  },
+  "osvVulnerabilityAlerts": true,
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "Dependency Dashboard",
+  "dependencyDashboardHeader": "This issue lists Renovate updates and detected dependencies. Read the [Dependency Dashboard docs](https://docs.renovatebot.com/key-concepts/dashboard/) to learn more.",
+  "dependencyDashboardFooter": "- [ ] <!-- rebase-check -->If you want to rebase/retry any of the above PRs, check this box"
+}

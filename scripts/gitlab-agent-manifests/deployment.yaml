@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitlab-agent
+  namespace: gitlab-agent-production
+  labels:
+    app.kubernetes.io/name: gitlab-agent
+    app.kubernetes.io/managed-by: gitlab
+    app.kubernetes.io/version: "18.1.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gitlab-agent
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gitlab-agent
+    spec:
+      serviceAccountName: gitlab-agent
+
+      containers:
+      - name: agent
+        image: "registry.gitlab.com/gitlab-org/cluster-integration/gitlab-agent/agentk:v18.1.0"
+        args:
+        - --token-file=/config/token
+        - --kas-address=wss://${KAS_HOST}/-/kubernetes-agent/
+        - --kas-insecure-skip-tls-verify
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+
+
+
+        livenessProbe:
+          httpGet:
+            path: /liveness
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readiness
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 65532
+          runAsGroup: 65532
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+        - name: token-volume
+          mountPath: /config
+          readOnly: true
+        - name: tmp-volume
+          mountPath: /tmp
+
+
+
+      volumes:
+      - name: token-volume
+        secret:
+          secretName: gitlab-agent-token
+      - name: tmp-volume
+        emptyDir: {}
+
+
+
+
+
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault 
