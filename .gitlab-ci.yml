@@ -471,6 +471,10 @@ production:
   rules:
     - when: never
 
+browser_performance:
+  before_script:
+    - echo "${ENVIRONMENT_URL}" > environment_url.txt
+
 # ==========================================
 # OBSERVABILITY INTEGRATIONS
 # ==========================================
