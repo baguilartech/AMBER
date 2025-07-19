@@ -487,13 +487,15 @@ deploy_production:
     - export ELK_HOST="$ELK_HOST"
     - export ELK_PORT="$ELK_PORT"
     - export GRAFANA_HOST="$GRAFANA_HOST"
+    # Create environment URL file for Auto-DevOps
+    - echo "${ENVIRONMENT_URL}" > environment_url.txt
     # Run deployment script
     - cd k8s
     - ./deploy.sh
     - echo "Production deployment completed via GitLab Agent"
   environment:
     name: production
-    url: https://rancher.kubernetes.prodigalpros.com  # AMBER is a Discord bot - URL points to cluster monitoring
+    url: ${ENVIRONMENT_URL}  # AMBER is a Discord bot - URL points to cluster monitoring
     kubernetes:
       namespace: amber
     deployment_tier: production
