@@ -507,7 +507,7 @@ sentry_release:
 # GitLab Agent deployment for production (recommended)
 deploy_production:
   stage: deploy
-  image: bitnami/kubectl:latest
+  image: alpine/k8s:latest
   before_script:
     - apk add --no-cache gettext  # for envsubst
   script:
