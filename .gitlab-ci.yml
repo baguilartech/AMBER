@@ -524,6 +524,7 @@ deploy_production:
     - echo "${ENVIRONMENT_URL}" > environment_url.txt
     # Run deployment script
     - cd k8s
+    - chmod +x deploy.sh
     - ./deploy.sh
     - echo "Production deployment completed via GitLab Agent"
   environment:
