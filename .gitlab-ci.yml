@@ -96,7 +96,11 @@ variables:
         fi
         
         # Calculate job duration and status
-        JOB_START_TIME=${CI_JOB_STARTED_AT:-$(date +%s)}
+        if [ -n "$CI_JOB_STARTED_AT" ]; then
+          JOB_START_TIME=$(date -d "$CI_JOB_STARTED_AT" +%s 2>/dev/null || echo $(date +%s))
+        else
+          JOB_START_TIME=$(date +%s)
+        fi
         JOB_DURATION=$(($(date +%s) - JOB_START_TIME))
         JOB_SUCCESS=$([ "${CI_JOB_STATUS:-unknown}" = "success" ] && echo 1 || echo 0)
         
