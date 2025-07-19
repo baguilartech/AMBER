@@ -2,8 +2,9 @@ import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { BaseQueueCommand } from './baseCommand';
 import { createQueueEmbed, formatVolume } from '../utils/formatters';
 import { logger } from '../utils/logger';
+import { Queue } from '../types';
 
-function getQueueStatus(queue: any): string {
+function getQueueStatus(queue: Queue): string {
   if (!queue.isPlaying) return 'Stopped';
   return queue.isPaused ? 'Paused' : 'Playing';
 }
