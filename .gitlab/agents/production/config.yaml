@@ -1,18 +1,18 @@
-# GitOps Configuration - Automatic manifest sync from repository
+# GitOps Configuration - Disabled until agent version supports it
 # Reference: https://docs.gitlab.com/user/clusters/agent/gitops.html
-gitops:
-  manifest_projects:
-  - id: baguilartech/amber
-    default_namespace: amber
-    paths:
-    - glob: 'k8s/**/*.yaml'
-    - glob: 'k8s/**/*.yml'
-    reconcile_timeout: 3600s
-    dry_run_strategy: none
-    prune: true
-    prune_timeout: 3600s
-    prune_propagation_policy: foreground
-    inventory_policy: must_match
+# gitops:
+#   manifest_projects:
+#   - id: baguilartech/amber
+#     default_namespace: amber
+#     paths:
+#     - glob: 'k8s/**/*.yaml'
+#     - glob: 'k8s/**/*.yml'
+#     reconcile_timeout: 3600s
+#     dry_run_strategy: none
+#     prune: true
+#     prune_timeout: 3600s
+#     prune_propagation_policy: foreground
+#     inventory_policy: must_match
 
 # CI/CD Access - Allow GitLab CI/CD jobs to deploy to cluster
 # Reference: https://docs.gitlab.com/user/clusters/agent/ci_cd_workflow.html
@@ -31,8 +31,8 @@ ci_access:
 observability:
   logging:
     level: info
-  gitops:
-    log_level: info
+  # gitops:
+  #   log_level: info
 
 remote_development:
   enabled: false

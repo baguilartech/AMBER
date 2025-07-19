@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: gitlab-agent
-  namespace: gitlab-agent
+  namespace: gitlab-agent-production
   labels:
     app.kubernetes.io/name: gitlab-agent
     app.kubernetes.io/managed-by: gitlab
@@ -63,4 +63,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: gitlab-agent
-  namespace: gitlab-agent 
+  namespace: gitlab-agent-production 

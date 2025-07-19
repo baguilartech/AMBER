@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 # Configuration
 AGENT_NAME="production"
 GITLAB_PROJECT="baguilartech/amber"
-NAMESPACE="gitlab-agent"
+NAMESPACE="gitlab-agent-production"
 
 echo -e "${BLUE}🔧 GitLab Agent Installation for Production Kubernetes${NC}"
 echo "=================================================="

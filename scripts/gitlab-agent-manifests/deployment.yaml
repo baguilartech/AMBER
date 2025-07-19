@@ -2,11 +2,11 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: gitlab-agent
-  namespace: gitlab-agent
+  namespace: gitlab-agent-production
   labels:
     app.kubernetes.io/name: gitlab-agent
     app.kubernetes.io/managed-by: gitlab
-    app.kubernetes.io/version: "16.7.0"
+    app.kubernetes.io/version: "18.1.0"
 spec:
   replicas: 1
   selector:
@@ -23,13 +23,14 @@ spec:
         app.kubernetes.io/name: gitlab-agent
     spec:
       serviceAccountName: gitlab-agent
+
       containers:
       - name: agent
-        image: "registry.gitlab.com/gitlab-org/cluster-integration/gitlab-agent/agentk:v16.7.0"
+        image: "registry.gitlab.com/gitlab-org/cluster-integration/gitlab-agent/agentk:v18.1.0"
         args:
         - --token-file=/config/token
-        - --kas-address=wss://kas.gitlab.com
-        - --agent-configuration-repository=baguilartech/amber
+        - --kas-address=wss://192.168.5.11/-/kubernetes-agent/
+        - --kas-insecure-skip-tls-verify
         env:
         - name: POD_NAMESPACE
           valueFrom:
@@ -39,6 +40,9 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+
+
+
         livenessProbe:
           httpGet:
             path: /liveness
@@ -75,12 +79,20 @@ spec:
           readOnly: true
         - name: tmp-volume
           mountPath: /tmp
+
+
+
       volumes:
       - name: token-volume
         secret:
           secretName: gitlab-agent-token
       - name: tmp-volume
         emptyDir: {}
+
+
+
+
+
       securityContext:
         fsGroup: 65532
         runAsGroup: 65532
