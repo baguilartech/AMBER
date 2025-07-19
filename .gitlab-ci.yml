@@ -101,23 +101,9 @@ variables:
         JOB_SUCCESS=$([ "${CI_JOB_STATUS:-unknown}" = "success" ] && echo 1 || echo 0)
         
         # Send pipeline metrics to Prometheus Push Gateway
-        cat <<EOF | curl -X POST "${PROMETHEUS_PUSHGATEWAY}/metrics/job/gitlab-ci/instance/${CI_JOB_ID}" --data-binary @-
-        # HELP gitlab_pipeline_duration_seconds Pipeline job duration in seconds
-        # TYPE gitlab_pipeline_duration_seconds gauge
-        gitlab_pipeline_duration_seconds{project="${CI_PROJECT_NAME}",stage="${CI_JOB_STAGE}",job="${CI_JOB_NAME}",branch="${CI_COMMIT_REF_NAME}",pipeline_id="${CI_PIPELINE_ID}"} ${JOB_DURATION}
-
-        # HELP gitlab_pipeline_success Pipeline job success status (1=success, 0=failed)
-        # TYPE gitlab_pipeline_success gauge
-        gitlab_pipeline_success{project="${CI_PROJECT_NAME}",stage="${CI_JOB_STAGE}",job="${CI_JOB_NAME}",branch="${CI_COMMIT_REF_NAME}",pipeline_id="${CI_PIPELINE_ID}"} ${JOB_SUCCESS}
-
-        # HELP gitlab_pipeline_timestamp_seconds Pipeline job completion timestamp
-        # TYPE gitlab_pipeline_timestamp_seconds gauge
-        gitlab_pipeline_timestamp_seconds{project="${CI_PROJECT_NAME}",stage="${CI_JOB_STAGE}",job="${CI_JOB_NAME}",branch="${CI_COMMIT_REF_NAME}",pipeline_id="${CI_PIPELINE_ID}"} $(date +%s)
-
-        # HELP gitlab_pipeline_total Total number of pipeline jobs
-        # TYPE gitlab_pipeline_total counter
-        gitlab_pipeline_total{project="${CI_PROJECT_NAME}",stage="${CI_JOB_STAGE}",job="${CI_JOB_NAME}",branch="${CI_COMMIT_REF_NAME}"} 1
-        EOF
+        printf "gitlab_pipeline_duration_seconds{project=\"%s\",stage=\"%s\",job=\"%s\",branch=\"%s\",pipeline_id=\"%s\"} %s\n" \
+          "${CI_PROJECT_NAME}" "${CI_JOB_STAGE}" "${CI_JOB_NAME}" "${CI_COMMIT_REF_NAME}" "${CI_PIPELINE_ID}" "${JOB_DURATION}" | \
+          curl -X POST "${PROMETHEUS_PUSHGATEWAY}/metrics/job/gitlab-ci/instance/${CI_JOB_ID}" --data-binary @-
         echo "Metrics sent to Prometheus Push Gateway"
       fi
     # Send annotations to Grafana (uses CI/CD variables: GRAFANA_HOST, GRAFANA_API_TOKEN)
