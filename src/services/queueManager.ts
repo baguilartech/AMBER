@@ -3,7 +3,7 @@ import { botConfig } from '../utils/config';
 import { logger } from '../utils/logger';
 
 export class QueueManager {
-  private queues: Map<string, Queue> = new Map();
+  private readonly queues: Map<string, Queue> = new Map();
 
   getQueue(guildId: string): Queue {
     if (!this.queues.has(guildId)) {

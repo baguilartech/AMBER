@@ -17,7 +17,7 @@ interface YouTubeSearchItem {
 
 export class YouTubeService extends BaseMusicService {
   protected platform = 'YouTube';
-  private apiKey: string;
+  private readonly apiKey: string;
 
   constructor() {
     super();

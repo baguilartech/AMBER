@@ -17,9 +17,9 @@ import { ErrorHandler } from '../utils/errorHandler';
 import { PrebufferService } from './prebufferService';
 
 export class MusicPlayer {
-  private players: Map<string, AudioPlayer> = new Map();
-  private connections: Map<string, VoiceConnection> = new Map();
-  private queueManager: QueueManager;
+  private readonly players: Map<string, AudioPlayer> = new Map();
+  private readonly connections: Map<string, VoiceConnection> = new Map();
+  private readonly queueManager: QueueManager;
   private readonly prebufferService: PrebufferService;
   private readonly skipInProgress: Map<string, boolean> = new Map();
 

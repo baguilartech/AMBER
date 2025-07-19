@@ -63,6 +63,11 @@ describe('Formatters', () => {
       expect(capitalizeFirst('Hello')).toBe('Hello');
       expect(capitalizeFirst('WORLD')).toBe('WORLD');
     });
+
+    it('should handle single character strings', () => {
+      expect(capitalizeFirst('a')).toBe('A');
+      expect(capitalizeFirst('A')).toBe('A');
+    });
   });
 
   describe('joinArtistNames', () => {

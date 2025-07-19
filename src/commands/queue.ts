@@ -3,6 +3,11 @@ import { BaseQueueCommand } from './baseCommand';
 import { createQueueEmbed, formatVolume } from '../utils/formatters';
 import { logger } from '../utils/logger';
 
+function getQueueStatus(queue: any): string {
+  if (!queue.isPlaying) return 'Stopped';
+  return queue.isPaused ? 'Paused' : 'Playing';
+}
+
 export class QueueCommand extends BaseQueueCommand {
 
   get data() {
@@ -33,7 +38,7 @@ export class QueueCommand extends BaseQueueCommand {
           },
           {
             name: 'Status',
-            value: queue.isPlaying ? (queue.isPaused ? 'Paused' : 'Playing') : 'Stopped',
+            value: getQueueStatus(queue),
             inline: true
           },
           {

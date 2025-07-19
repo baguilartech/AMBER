@@ -6,7 +6,7 @@ export enum LogLevel {
 }
 
 class Logger {
-  private logLevel: LogLevel;
+  private readonly logLevel: LogLevel;
 
   constructor() {
     // Read LOG_LEVEL directly from environment to avoid circular dependency with config

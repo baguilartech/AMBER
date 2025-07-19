@@ -184,5 +184,34 @@ describe('QueueCommand', () => {
       expect(handleErrorSpy).toHaveBeenCalledWith(mockInteraction, expect.any(Error), 'queue');
       handleErrorSpy.mockRestore();
     });
+
+    it('should handle reply failures gracefully', async () => {
+      const mockSongs: Song[] = [{
+        title: 'Song 1',
+        artist: 'Artist 1',
+        url: 'https://youtube.com/watch?v=1',
+        duration: 180,
+        requestedBy: 'User1',
+        platform: 'youtube'
+      }];
+
+      mockQueueManager.getQueue.mockReturnValue({
+        songs: mockSongs,
+        currentIndex: 0,
+        isPlaying: false,
+        isPaused: false,
+        volume: 0.5
+      });
+
+      mockInteraction.reply.mockRejectedValue(new Error('Reply failed'));
+
+      // Mock the handleError method
+      const handleErrorSpy = jest.spyOn(queueCommand as any, 'handleError').mockImplementation();
+
+      await queueCommand.execute(mockInteraction);
+
+      expect(handleErrorSpy).toHaveBeenCalledWith(mockInteraction, expect.any(Error), 'queue');
+      handleErrorSpy.mockRestore();
+    });
   });
 });

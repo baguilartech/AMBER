@@ -8,8 +8,8 @@ import { capitalizeFirst } from '../utils/formatters';
 import { logger } from '../utils/logger';
 
 export class PlayCommand extends BaseCommandClass {
-  private queueManager: QueueManager;
-  private musicPlayer: MusicPlayer;
+  private readonly queueManager: QueueManager;
+  private readonly musicPlayer: MusicPlayer;
 
   constructor(queueManager: QueueManager, musicPlayer: MusicPlayer) {
     super();

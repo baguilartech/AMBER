@@ -32,7 +32,8 @@ jest.mock('prom-client', () => ({
 // Mock express
 const mockApp = {
   get: jest.fn(),
-  listen: jest.fn()
+  listen: jest.fn(),
+  disable: jest.fn()
 };
 
 jest.mock('express', () => jest.fn(() => mockApp));
@@ -56,6 +57,7 @@ describe('Metrics', () => {
     
     // Reset app mock
     mockApp.get.mockClear();
+    mockApp.disable.mockClear();
     mockApp.listen.mockImplementation((...args: any[]) => {
       const callback = args[2];
       if (callback) callback();
@@ -76,6 +78,9 @@ describe('Metrics', () => {
       
       createMetricsServer(3001);
 
+      // Verify security header is disabled
+      expect(mockApp.disable).toHaveBeenCalledWith('x-powered-by');
+      
       // Verify endpoints were registered
       expect(mockApp.get).toHaveBeenCalledWith('/health', expect.any(Function));
       expect(mockApp.get).toHaveBeenCalledWith('/metrics', expect.any(Function));
@@ -259,6 +264,15 @@ describe('Metrics', () => {
 
       expect(mockCounter.inc).toHaveBeenCalledWith({ guild_id: 'guild456', platform: 'spotify' });
       expect(mockHistogram.observe).toHaveBeenCalledWith({ platform: 'spotify' }, 2.5);
+    });
+
+    it('should track song play with zero load duration', async () => {
+      const { trackSongPlay } = await import('../../src/utils/metrics');
+      
+      trackSongPlay('guild789', 'soundcloud', 0);
+
+      expect(mockCounter.inc).toHaveBeenCalledWith({ guild_id: 'guild789', platform: 'soundcloud' });
+      expect(mockHistogram.observe).toHaveBeenCalledWith({ platform: 'soundcloud' }, 0);
     });
 
     it('should track API latency', async () => {

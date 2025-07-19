@@ -91,6 +91,9 @@ export const botUptime = new Counter({
 // Create metrics server
 export function createMetricsServer(port: number): void {
   const app = express();
+  
+  // Disable X-Powered-By header for security
+  app.disable('x-powered-by');
 
   // Health check endpoint
   app.get('/health', (req, res) => {

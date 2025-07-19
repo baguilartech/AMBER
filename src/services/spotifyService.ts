@@ -9,7 +9,7 @@ import { ServiceFactory } from './serviceFactory';
 
 export class SpotifyService extends BaseMusicService {
   protected platform = 'Spotify';
-  private spotify: SpotifyWebApi;
+  private readonly spotify: SpotifyWebApi;
   private accessToken: string | null = null;
   private tokenExpiry: number = 0;
 
@@ -223,12 +223,14 @@ export class SpotifyService extends BaseMusicService {
   }
 
   private extractTrackId(url: string): string | null {
-    const match = url.match(/track\/([a-zA-Z0-9]+)/);
+    const regex = /track\/([a-zA-Z0-9]+)/;
+    const match = regex.exec(url);
     return match ? match[1] : null;
   }
 
   private extractPlaylistId(url: string): string | null {
-    const match = url.match(/playlist\/([a-zA-Z0-9]+)/);
+    const regex = /playlist\/([a-zA-Z0-9]+)/;
+    const match = regex.exec(url);
     return match ? match[1] : null;
   }
 

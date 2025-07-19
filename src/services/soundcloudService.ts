@@ -6,11 +6,11 @@ import { BaseMusicService } from './baseMusicService';
 
 export class SoundCloudService extends BaseMusicService {
   protected platform = 'SoundCloud';
-  private clientId: string | null;
+  private readonly clientId: string | null;
 
   constructor() {
     super();
-    this.clientId = apiKeys.soundcloud?.clientId || null;
+    this.clientId = apiKeys.soundcloud?.clientId ?? null;
   }
 
   async search(query: string): Promise<Song[]> {
@@ -114,7 +114,8 @@ export class SoundCloudService extends BaseMusicService {
   }
 
   private extractTrackId(url: string): string | null {
-    const match = url.match(/soundcloud\.com\/[^/]+\/([^/?]+)/);
+    const regex = /soundcloud\.com\/[^/]+\/([^/?]+)/;
+    const match = regex.exec(url);
     return match ? match[1] : null;
   }
 

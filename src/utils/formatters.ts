@@ -41,7 +41,7 @@ export function createNowPlayingEmbed(song: Song): EmbedBuilder {
       { name: 'Platform', value: capitalizeFirst(song.platform), inline: true },
       { name: 'Requested by', value: song.requestedBy, inline: true }
     )
-    .setThumbnail(song.thumbnail || null);
+    .setThumbnail(song.thumbnail ?? null);
 }
 
 export function createQueueEmbed(songs: Song[], currentIndex: number): EmbedBuilder {

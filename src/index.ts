@@ -15,10 +15,10 @@ import { VolumeCommand } from './commands/volume';
 import { NowPlayingCommand } from './commands/nowplaying';
 
 class AmberBot {
-  private client: Client;
-  private queueManager: QueueManager;
-  private musicPlayer: MusicPlayer;
-  private commandRegistry: CommandRegistry;
+  private readonly client: Client;
+  private readonly queueManager: QueueManager;
+  private readonly musicPlayer: MusicPlayer;
+  private readonly commandRegistry: CommandRegistry;
 
   constructor() {
     this.client = new Client({

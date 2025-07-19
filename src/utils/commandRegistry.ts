@@ -7,7 +7,7 @@ export interface Command {
 }
 
 export class CommandRegistry {
-  private commands: Collection<string, Command> = new Collection();
+  private readonly commands: Collection<string, Command> = new Collection();
 
   register(command: Command): void {
     this.commands.set(command.data.name, command);
