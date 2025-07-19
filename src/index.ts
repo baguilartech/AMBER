@@ -1,6 +1,7 @@
 import { Client, GatewayIntentBits, REST, Routes } from 'discord.js';
 import { validateConfig, apiKeys } from './utils/config';
 import { logger } from './utils/logger';
+import { createMetricsServer, updateGuildMetrics, trackApiLatency, shutdownMetrics } from './utils/metrics';
 import { CommandRegistry } from './utils/commandRegistry';
 import { QueueManager } from './services/queueManager';
 import { MusicPlayer } from './services/musicPlayer';
@@ -33,6 +34,10 @@ class AmberBot {
 
     this.setupCommands();
     this.setupEventHandlers();
+    
+    // Start metrics server
+    const metricsPort = parseInt(process.env.PROMETHEUS_PORT ?? '5150', 10);
+    createMetricsServer(metricsPort);
   }
 
   private setupCommands(): void {
@@ -54,6 +59,14 @@ class AmberBot {
     this.client.once('ready', async () => {
       logger.info(`Logged in as ${this.client.user?.tag}`);
       await this.registerCommands();
+      
+      // Update guild metrics
+      const guilds = this.client.guilds.cache.size;
+      const totalMembers = this.client.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0);
+      updateGuildMetrics(guilds, totalMembers);
+      
+      // Track API latency
+      trackApiLatency(this.client.ws.ping / 1000);
       
       const inviteUrl = `https://discord.com/oauth2/authorize?client_id=${this.client.user?.id}&scope=bot%20applications.commands&permissions=36700160`;
       logger.infoWithLink('Bot is ready! Invite me to your server:', inviteUrl);
@@ -86,12 +99,14 @@ class AmberBot {
 
     process.on('SIGINT', () => {
       logger.info('Received SIGINT, shutting down gracefully...');
+      shutdownMetrics();
       this.client.destroy();
       process.exit(0);
     });
 
     process.on('SIGTERM', () => {
       logger.info('Received SIGTERM, shutting down gracefully...');
+      shutdownMetrics();
       this.client.destroy();
       process.exit(0);
     });

@@ -149,7 +149,7 @@ describe('Monitoring Utils', () => {
       const mockDiscordClient = {
         isReady: jest.fn().mockReturnValue(true),
         ws: { status: 0 } // READY state
-      };
+      } as any;
       
       const health = HealthCheck.getHealthStatus(mockDiscordClient);
       
@@ -199,7 +199,7 @@ describe('Monitoring Utils', () => {
       const mockReadyClient = {
         isReady: jest.fn().mockReturnValue(true),
         ws: { status: 1 } // Not READY state
-      };
+      } as any;
       const healthReady = HealthCheck.getHealthStatus(mockReadyClient);
       expect(healthReady.discord_connection).toBe('connected');
 
@@ -207,7 +207,7 @@ describe('Monitoring Utils', () => {
       const mockWSClient = {
         isReady: jest.fn().mockReturnValue(false),
         ws: { status: 0 } // READY state
-      };
+      } as any;
       const healthWS = HealthCheck.getHealthStatus(mockWSClient);
       expect(healthWS.discord_connection).toBe('connected');
 
@@ -215,7 +215,7 @@ describe('Monitoring Utils', () => {
       const mockDisconnectedClient = {
         isReady: jest.fn().mockReturnValue(false),
         ws: { status: 1 } // Not READY state
-      };
+      } as any;
       const healthDisconnected = HealthCheck.getHealthStatus(mockDisconnectedClient);
       expect(healthDisconnected.discord_connection).toBe('disconnected');
     });

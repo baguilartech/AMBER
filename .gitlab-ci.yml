@@ -514,7 +514,7 @@ deploy_production:
   stage: deploy
   image: alpine:latest
   before_script:
-    - apk add --no-cache kubectl gettext  # install kubectl and envsubst
+    - apk add --no-cache kubectl gettext bash  # install kubectl, envsubst and bash
   script:
     - echo "Deploying to production via GitLab Agent..."
     # Export environment variables for substitution

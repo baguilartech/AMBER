@@ -5,6 +5,7 @@
 
 import * as Sentry from '@sentry/node';
 import type { Request, Response } from 'express';
+import type { Client } from 'discord.js';
 
 // Prometheus metrics collector
 export class MetricsCollector {
@@ -76,7 +77,7 @@ export class MetricsCollector {
 
 // Health check utilities
 export class HealthCheck {
-  public static getHealthStatus(discordClient?: any) {
+  public static getHealthStatus(discordClient?: Client) {
     return {
       status: 'healthy',
       timestamp: new Date().toISOString(),
@@ -93,7 +94,7 @@ export class HealthCheck {
     };
   }
 
-  private static checkDiscordConnection(discordClient?: any): string {
+  private static checkDiscordConnection(discordClient?: Client): string {
     if (!discordClient) {
       return 'not_initialized';
     }

@@ -7,6 +7,8 @@ services:
       - NODE_ENV=production
     env_file:
       - .env
+    ports:
+      - "${PROMETHEUS_PORT:-5150}:${PROMETHEUS_PORT:-5150}"  # Prometheus metrics endpoint
     volumes:
       - ./data:/usr/src/app/data
       - ./logs:/usr/src/app/logs
@@ -14,6 +16,10 @@ services:
       - discord-bot-network
     mem_limit: 512m
     cpus: 0.5
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=${PROMETHEUS_PORT:-5150}"
+      - "prometheus.io/path=/metrics"
 
 networks:
   discord-bot-network:

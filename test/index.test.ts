@@ -24,7 +24,16 @@ describe('AmberBot Index', () => {
       on: jest.fn(),
       login: jest.fn().mockResolvedValue(undefined),
       destroy: jest.fn(),
-      user: { tag: 'TestBot#1234' }
+      user: { tag: 'TestBot#1234', id: 'test-bot-id' },
+      guilds: {
+        cache: {
+          size: 5,
+          reduce: jest.fn().mockReturnValue(150) // Mock total member count
+        }
+      },
+      ws: {
+        ping: 45 // Mock ping in milliseconds
+      }
     };
 
     const mockRest = {
@@ -221,7 +230,16 @@ describe('AmberBot Index', () => {
       on: jest.fn(),
       login: jest.fn().mockResolvedValue(undefined),
       destroy: jest.fn(),
-      user: { tag: 'TestBot#1234' }
+      user: { tag: 'TestBot#1234', id: 'test-bot-id' },
+      guilds: {
+        cache: {
+          size: 5,
+          reduce: jest.fn().mockReturnValue(150)
+        }
+      },
+      ws: {
+        ping: 45
+      }
     };
 
     jest.doMock('discord.js', () => ({
@@ -310,7 +328,16 @@ describe('AmberBot Index', () => {
       on: jest.fn(),
       login: jest.fn().mockResolvedValue(undefined),
       destroy: jest.fn(),
-      user: { tag: 'TestBot#1234' }
+      user: { tag: 'TestBot#1234', id: 'test-bot-id' },
+      guilds: {
+        cache: {
+          size: 5,
+          reduce: jest.fn().mockReturnValue(150)
+        }
+      },
+      ws: {
+        ping: 45
+      }
     };
 
     jest.doMock('discord.js', () => ({
