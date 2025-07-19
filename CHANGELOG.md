@@ -2,6 +2,117 @@
 
 All notable changes to the Amber Discord Music Bot project are documented in this file.
 
+## [1.1.3] - 2025-07-19
+
+### 🔧 Monitoring & Observability Enhancements
+
+#### **Comprehensive Metrics System - NEW! 📊**
+- **Prometheus Integration**: Full Prometheus metrics collection with `prom-client` v15.1.3
+- **Discord Bot Metrics**: Command usage, song plays, guild counts, queue lengths, API latency
+- **Performance Monitoring**: Command duration histograms, song load time tracking
+- **Health Endpoints**: `/health` and `/metrics` endpoints on configurable port (default: 5150)
+- **Resource Monitoring**: Memory usage, uptime tracking, voice connection status
+- **Graceful Shutdown**: Proper metrics cleanup on bot termination
+
+#### **Advanced Error Tracking & Logging**
+- **Sentry Integration**: Production-ready error tracking with `@sentry/node` v9.39.0
+- **ELK Stack Support**: Structured JSON logging for Elasticsearch integration
+- **Enhanced Monitoring Utilities**: Comprehensive health checks for all services
+- **Error Context**: Rich error reporting with guild IDs, user context, and service status
+- **Privacy-First**: Automatic filtering of sensitive information from error reports
+
+#### **Service Health Monitoring**
+- **Multi-Service Health Checks**: Discord, Spotify, YouTube, SoundCloud status monitoring
+- **Connection Monitoring**: Real-time voice connection and API status tracking
+- **Structured Health Reports**: JSON health status with uptime, memory, and service availability
+- **Environment Detection**: Automatic environment detection and configuration
+
+### 🔄 Dependency Updates
+
+#### **Core Dependencies**
+- **@distube/ytdl-core**: Auto-updated from `4.14.4` → `4.16.12` for improved YouTube streaming
+- **Express v5.1.0**: Modern Express framework for metrics and health endpoints
+- **Prometheus Client**: Added `prom-client` v15.1.3 for comprehensive metrics collection
+- **Sentry Monitoring**: Added `@sentry/node` v9.39.0 for production error tracking
+
+#### **Development & Type Definitions**
+- **@types/express**: Updated to v5.0.3 for Express v5 compatibility
+- **Enhanced Type Safety**: Additional type definitions for monitoring and metrics
+- **Development Tools**: Maintained latest versions of ESLint, Jest, TypeScript toolchain
+
+### 🚀 Infrastructure & Deployment
+
+#### **Production-Ready Monitoring**
+- **Observability Stack**: Full integration with Prometheus, Grafana, Sentry, and ELK
+- **Environment Variables**: New monitoring configuration options
+  - `PROMETHEUS_PORT`: Metrics server port (default: 5150)
+  - `SENTRY_DSN`: Error tracking configuration
+  - `ELK_HOST` / `ELK_PORT`: Log shipping configuration
+- **Docker Health Checks**: Enhanced container health monitoring and startup verification
+
+#### **CI/CD Pipeline Enhancements**
+- **Observability Integration**: Grafana annotations for deployment tracking
+- **Metrics Collection**: Automated metrics reporting during CI/CD execution
+- **Health Validation**: Enhanced health checks in deployment pipeline
+
+### 🔧 Code Quality & Architecture
+
+#### **Monitoring Architecture**
+- **MetricsCollector**: Singleton pattern for centralized metrics collection
+- **HealthCheck**: Comprehensive service status monitoring
+- **ErrorTracking**: Centralized error handling with contextual information
+- **LogShipper**: Structured logging for observability platforms
+
+#### **Enhanced Error Handling**
+- **Service-Specific Monitoring**: Individual health checks for YouTube, Spotify, SoundCloud
+- **Connection Status**: Real-time Discord API and voice connection monitoring
+- **Graceful Degradation**: Automatic fallback when monitoring services are unavailable
+
+### 🐛 Maintenance & Stability
+
+#### **Automatic Dependency Management**
+- **Security Updates**: Automated dependency updates through Renovate and Dependabot
+- **Version Synchronization**: Consistent versioning across package.json and monitoring systems
+- **Backward Compatibility**: All monitoring features are optional and don't affect core functionality
+
+### 📊 Performance Improvements
+
+#### **Metrics-Driven Optimization**
+- **Real-Time Monitoring**: Live tracking of command execution times and resource usage
+- **Performance Baselines**: Historical data collection for performance trend analysis
+- **Resource Optimization**: Memory and CPU usage tracking for container optimization
+
+### 🔄 Breaking Changes
+
+None. All monitoring features are additive and don't affect existing functionality.
+
+### 🚀 Migration Guide
+
+#### **New Environment Variables (Optional)**
+```bash
+# Monitoring Configuration (all optional)
+PROMETHEUS_PORT=5150              # Metrics server port
+SENTRY_DSN=your_sentry_dsn_here  # Error tracking
+ELK_HOST=your_elk_host           # Log shipping
+ELK_PORT=8080                    # Log shipping port
+```
+
+#### **Docker Compose Updates**
+```yaml
+# Add to docker-compose.yml for metrics collection
+ports:
+  - "5150:5150"  # Metrics endpoint
+```
+
+### 🔜 Next Steps
+
+- Grafana dashboard templates for bot monitoring
+- Advanced alerting rules for Prometheus
+- Performance optimization based on metrics data
+- Enhanced logging for debugging and troubleshooting
+
+---
+
 ## [1.1.2] - 2025-07-07
 
 ### 🔒 Security & Infrastructure Improvements
@@ -536,10 +647,13 @@ test/
 - `discord.js`: Discord API integration
 - `@discordjs/voice`: Voice connection handling
 - `@discordjs/opus`: Audio encoding
-- `ytdl-core`: YouTube streaming
+- `@distube/ytdl-core`: YouTube streaming (improved fork)
 - `spotify-web-api-node`: Spotify API integration
 - `ffmpeg-static`: Audio processing
 - `dotenv`: Environment configuration
+- `express`: Web server for metrics and health endpoints
+- `prom-client`: Prometheus metrics collection
+- `@sentry/node`: Error tracking and performance monitoring
 
 #### **Development Dependencies**
 - `typescript`: Type safety and compilation

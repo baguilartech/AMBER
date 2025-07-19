@@ -132,7 +132,7 @@ describe('Monitoring Utils', () => {
 
     it('should use default version when npm_package_version is not set', () => {
       const json = collector.getMetricsJSON();
-      expect(json.version).toBe('1.1.2');
+      expect(json.version).toBe('1.1.3');
     });
   });
 
@@ -177,7 +177,7 @@ describe('Monitoring Utils', () => {
 
       const health = HealthCheck.getHealthStatus();
       
-      expect(health.version).toBe('1.1.2');
+      expect(health.version).toBe('1.1.3');
       expect(health.environment).toBe('development');
     });
 
@@ -528,7 +528,7 @@ describe('Monitoring Utils', () => {
       const call = (global.fetch as jest.Mock).mock.calls[0];
       const body = JSON.parse(call[1].body);
       
-      expect(body.version).toBe('1.1.2');
+      expect(body.version).toBe('1.1.3');
       expect(body.environment).toBe('development');
     });
   });
@@ -674,7 +674,7 @@ describe('Monitoring Utils', () => {
       metrics.incrementCommandUsage('minimal');
       const metricsJson = metrics.getMetricsJSON();
       expect(metricsJson.metrics['command_minimal_total']).toBe(1);
-      expect(metricsJson.version).toBe('1.1.2');
+      expect(metricsJson.version).toBe('1.1.3');
 
       // Get health status (should work)
       const health = HealthCheck.getHealthStatus();

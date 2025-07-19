@@ -38,6 +38,8 @@ graph TB
         UV[URL Validator]
         C[Config]
         F[Formatters]
+        M[Metrics]
+        MON[Monitoring]
     end
     
     DC --> PC
@@ -67,10 +69,17 @@ graph TB
     MP --> PS
     MP --> L
     PS --> L
+    MP --> M
     
     YS --> L
     SS --> L
     SCS --> L
+    
+    DC --> M
+    PC --> M
+    QC --> M
+    VC --> M
+    NC --> M
 ```
 
 ## Key Components
@@ -114,6 +123,8 @@ graph TB
 - **Config**: Environment configuration
 - **URLValidator**: URL validation
 - **Formatters**: String formatting utilities
+- **Metrics**: Prometheus metrics collection and reporting
+- **Monitoring**: Health checks, error tracking, and observability
 
 ## Design Patterns
 
@@ -207,7 +218,9 @@ src/
 │   ├── errorHandler.ts       # Error handling
 │   ├── logger.ts             # Logging
 │   ├── urlValidator.ts       # URL validation
-│   └── formatters.ts         # String formatting
+│   ├── formatters.ts         # String formatting
+│   ├── metrics.ts            # Prometheus metrics collection
+│   └── monitoring.ts         # Health checks and observability
 ├── types/                # TypeScript types
 │   └── index.ts             # Type definitions
 └── index.ts              # Main entry point

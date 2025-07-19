@@ -15,8 +15,6 @@ Configure these in GitLab Project → Settings → CI/CD → Variables:
 |----------|------|-------------|
 | `ELK_HOST` | Masked | ELK stack IP address |
 | `ELK_PORT` | Normal | ELK HTTP input port (default: 8080) |
-| `GRAFANA_HOST` | Masked | Grafana IP address |
-| `GRAFANA_API_TOKEN` | Masked | Grafana API token for annotations |
 
 ### GitLab Agent
 | Variable | Type | Description |

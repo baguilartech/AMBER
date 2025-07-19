@@ -51,6 +51,9 @@ Amber is a **self-hosted Discord music bot** designed for reliability and ease o
 - Resource limits and health monitoring
 - Comprehensive error handling
 - Automatic cleanup and optimization
+- Prometheus metrics and health endpoints
+- Sentry error tracking integration
+- ELK stack logging support
 
 #### 🔧 **Developer Friendly**
 - TypeScript with full type safety
@@ -81,7 +84,7 @@ Amber is a **self-hosted Discord music bot** designed for reliability and ease o
 - **Commands Layer**: 9 slash commands with BaseCommand pattern
 - **Services Layer**: YouTube, Spotify, SoundCloud integration
 - **Management Layer**: Queue, music player, prebuffer service
-- **Utilities**: Logger, config, error handling, formatters
+- **Utilities**: Logger, config, error handling, formatters, metrics, monitoring
 
 ### Performance Features
 - **Prebuffering**: Smart background preparation of next songs

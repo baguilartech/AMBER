@@ -17,6 +17,9 @@ A self-hosted Discord music bot with multi-platform streaming support. Stream mu
 - ⚡ **Prebuffering**: Smart audio prebuffering for seamless playback
 - 🛡️ **Security**: Automated vulnerability scanning and dependency management
 - 🧪 **100% Test Coverage**: Comprehensive test suite with perfect coverage
+- 📊 **Prometheus Metrics**: Real-time monitoring of performance and usage
+- 🛡️ **Sentry Integration**: Production-ready error tracking and monitoring
+- 📈 **ELK Stack Support**: Structured logging for enterprise environments
 
 ## Quick Start
 
@@ -60,6 +63,12 @@ AUTO_LEAVE_TIMEOUT=300000
 # Development
 NODE_ENV=production
 LOG_LEVEL=info
+
+# Monitoring & Observability (Optional)
+PROMETHEUS_PORT=5150
+SENTRY_DSN=your_sentry_dsn_here
+ELK_HOST=your_elk_host
+ELK_PORT=8080
 ```
 
 ### Docker Deployment (Recommended)
