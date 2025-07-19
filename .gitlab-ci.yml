@@ -344,6 +344,11 @@ container_scanning:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
   allow_failure: true
 
+# Secret Detection (exclude node_modules)
+secret_detection:
+  variables:
+    SECRET_DETECTION_EXCLUDED_PATHS: "node_modules,coverage,dist,reports"
+
 # Auto-DevOps will handle code_quality automatically
 
 # Release job for tagged versions
@@ -525,8 +530,7 @@ deploy_production:
     # Run deployment script
     - cd k8s
     - ls -la
-    - chmod +x deploy.sh
-    - ./deploy.sh
+    - bash deploy.sh
     - echo "Production deployment completed via GitLab Agent"
   environment:
     name: production
