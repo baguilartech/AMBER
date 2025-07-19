@@ -507,9 +507,9 @@ sentry_release:
 # GitLab Agent deployment for production (recommended)
 deploy_production:
   stage: deploy
-  image: alpine/k8s:latest
+  image: alpine:latest
   before_script:
-    - apk add --no-cache gettext  # for envsubst
+    - apk add --no-cache kubectl gettext  # install kubectl and envsubst
   script:
     - echo "Deploying to production via GitLab Agent..."
     # Export environment variables for substitution
