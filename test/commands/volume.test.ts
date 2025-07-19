@@ -68,7 +68,7 @@ describe('VolumeCommand', () => {
       expect(mockMusicPlayer.setVolume).toHaveBeenCalledWith('guild-123', 0.5);
       expect(mockInteraction.reply).toHaveBeenCalledWith({
         content: 'Nothing is currently playing.',
-        ephemeral: true
+        flags: [1 << 6] // MessageFlags.Ephemeral
       });
     });
 

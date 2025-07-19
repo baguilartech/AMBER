@@ -70,7 +70,7 @@ describe('NowPlayingCommand', () => {
 
       expect(mockInteraction.reply).toHaveBeenCalledWith({
         content: 'Nothing is currently playing.',
-        ephemeral: true
+        flags: [1 << 6] // MessageFlags.Ephemeral
       });
     });
 

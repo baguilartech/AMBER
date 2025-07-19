@@ -276,6 +276,7 @@ describe('Monitoring Utils', () => {
       expect(healthNoConfig.services.youtube).toBe('available');
     });
 
+
   });
 
   describe('ErrorTracking', () => {

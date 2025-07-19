@@ -36,6 +36,8 @@ variables:
   DOCKER_TLS_CERTDIR: "/certs"
   CONTAINER_IMAGE: "${CI_REGISTRY_IMAGE}/discord-bot"
   CS_IMAGE: "${CI_REGISTRY_IMAGE}/discord-bot:${CI_COMMIT_SHA}"
+  # Observability configuration
+  PROMETHEUS_PUSHGATEWAY: "http://${GRAFANA_HOST}:9091"
 
 # Cache template for Node.js projects
 .cache_template: &cache_template
@@ -80,6 +82,43 @@ variables:
         curl -X POST "http://${ELK_HOST}:${ELK_PORT}" \
           -H "Content-Type: application/json" \
           -d "$METRICS_JSON" || echo "Failed to send metrics to ELK"
+      fi
+    # Send metrics to Prometheus Push Gateway (uses CI/CD variable: PROMETHEUS_PUSHGATEWAY)
+    - |
+      if [ -n "$PROMETHEUS_PUSHGATEWAY" ]; then
+        # Install curl if not available (reuse installation logic from above)
+        if ! command -v curl >/dev/null 2>&1; then
+          if command -v apk >/dev/null 2>&1; then
+            apk add --no-cache curl
+          elif command -v apt-get >/dev/null 2>&1; then
+            apt-get update && apt-get install -y curl
+          fi
+        fi
+        
+        # Calculate job duration and status
+        JOB_START_TIME=${CI_JOB_STARTED_AT:-$(date +%s)}
+        JOB_DURATION=$(($(date +%s) - JOB_START_TIME))
+        JOB_SUCCESS=$([ "${CI_JOB_STATUS:-unknown}" = "success" ] && echo 1 || echo 0)
+        
+        # Send pipeline metrics to Prometheus Push Gateway
+        cat <<EOF | curl -X POST "${PROMETHEUS_PUSHGATEWAY}/metrics/job/gitlab-ci/instance/${CI_JOB_ID}" --data-binary @-
+          # HELP gitlab_pipeline_duration_seconds Pipeline job duration in seconds
+          # TYPE gitlab_pipeline_duration_seconds gauge
+          gitlab_pipeline_duration_seconds{project="${CI_PROJECT_NAME}",stage="${CI_JOB_STAGE}",job="${CI_JOB_NAME}",branch="${CI_COMMIT_REF_NAME}",pipeline_id="${CI_PIPELINE_ID}"} ${JOB_DURATION}
+
+          # HELP gitlab_pipeline_success Pipeline job success status (1=success, 0=failed)
+          # TYPE gitlab_pipeline_success gauge
+          gitlab_pipeline_success{project="${CI_PROJECT_NAME}",stage="${CI_JOB_STAGE}",job="${CI_JOB_NAME}",branch="${CI_COMMIT_REF_NAME}",pipeline_id="${CI_PIPELINE_ID}"} ${JOB_SUCCESS}
+
+          # HELP gitlab_pipeline_timestamp_seconds Pipeline job completion timestamp
+          # TYPE gitlab_pipeline_timestamp_seconds gauge
+          gitlab_pipeline_timestamp_seconds{project="${CI_PROJECT_NAME}",stage="${CI_JOB_STAGE}",job="${CI_JOB_NAME}",branch="${CI_COMMIT_REF_NAME}",pipeline_id="${CI_PIPELINE_ID}"} $(date +%s)
+
+          # HELP gitlab_pipeline_total Total number of pipeline jobs
+          # TYPE gitlab_pipeline_total counter
+          gitlab_pipeline_total{project="${CI_PROJECT_NAME}",stage="${CI_JOB_STAGE}",job="${CI_JOB_NAME}",branch="${CI_COMMIT_REF_NAME}"} 1
+          EOF
+        echo "Metrics sent to Prometheus Push Gateway"
       fi
     # Send annotations to Grafana (uses CI/CD variables: GRAFANA_HOST, GRAFANA_API_TOKEN)
     - |

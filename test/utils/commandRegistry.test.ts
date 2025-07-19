@@ -105,7 +105,7 @@ describe('CommandRegistry', () => {
       
       expect(mockInteraction.reply).toHaveBeenCalledWith({
         content: 'Unknown command!',
-        ephemeral: true
+        flags: [1 << 6] // MessageFlags.Ephemeral
       });
     });
 
@@ -120,7 +120,7 @@ describe('CommandRegistry', () => {
       
       expect(mockInteraction.reply).toHaveBeenCalledWith({
         content: 'There was an error executing this command!',
-        ephemeral: true
+        flags: [1 << 6] // MessageFlags.Ephemeral
       });
     });
 
@@ -135,7 +135,7 @@ describe('CommandRegistry', () => {
       
       expect(mockInteraction.followUp).toHaveBeenCalledWith({
         content: 'There was an error executing this command!',
-        ephemeral: true
+        flags: [1 << 6] // MessageFlags.Ephemeral
       });
     });
 
@@ -151,7 +151,7 @@ describe('CommandRegistry', () => {
       
       expect(mockInteraction.followUp).toHaveBeenCalledWith({
         content: 'There was an error executing this command!',
-        ephemeral: true
+        flags: [1 << 6] // MessageFlags.Ephemeral
       });
     });
   });

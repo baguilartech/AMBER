@@ -169,6 +169,41 @@ describe('MusicPlayer', () => {
       expect(true).toBe(true);
     });
 
+    it('should handle stream errors during playback', async () => {
+      const youtubeSong = { ...mockSong, url: 'https://youtube.com/watch?v=test' };
+      mockQueueManager.getCurrentSong.mockReturnValue(youtubeSong);
+
+      // Mock ytdl to return a stream
+      const mockStream = {
+        on: jest.fn().mockReturnThis(),
+        pipe: jest.fn().mockReturnThis()
+      };
+      const ytdl = require('@distube/ytdl-core').default;
+      ytdl.mockReturnValue(mockStream);
+
+      // Mock createAudioResource to return a resource with playStream
+      const mockPlayStream = { on: jest.fn() };
+      const mockResource = {
+        volume: { setVolume: jest.fn() },
+        playStream: mockPlayStream
+      };
+      (createAudioResource as jest.Mock).mockReturnValue(mockResource);
+
+      const loggerSpy = jest.spyOn(require('../../src/utils/logger').logger, 'error');
+
+      await musicPlayer.play('guild123', mockVoiceConnection);
+
+      // Verify error handler was registered
+      expect(mockPlayStream.on).toHaveBeenCalledWith('error', expect.any(Function));
+      
+      // Trigger the error handler
+      const errorHandler = mockPlayStream.on.mock.calls.find(call => call[0] === 'error')?.[1];
+      const testError = new Error('Stream test error');
+      errorHandler(testError);
+
+      expect(loggerSpy).toHaveBeenCalledWith(`Stream error for ${youtubeSong.title}:`, testError);
+    });
+
     it('should handle play with non-YouTube song', async () => {
       const spotifySong = { ...mockSong, platform: 'spotify' as const, url: 'https://spotify.com/track/test' };
       mockQueueManager.getCurrentSong.mockReturnValue(spotifySong);

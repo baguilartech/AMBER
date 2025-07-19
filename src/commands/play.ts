@@ -40,7 +40,12 @@ export class PlayCommand extends BaseCommandClass {
       return;
     }
 
-    await interaction.deferReply();
+    try {
+      await interaction.deferReply();
+    } catch (error) {
+      logger.error('Failed to defer reply - interaction may have expired:', error);
+      return;
+    }
 
     try {
       const songs = await this.searchSongs(query, member.user.username);

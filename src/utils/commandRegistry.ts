@@ -40,7 +40,7 @@ export class CommandRegistry {
       logger.warn(`Unknown command: ${interaction.commandName}`);
       await interaction.reply({
         content: 'Unknown command!',
-        ephemeral: true
+        flags: [1 << 6] // MessageFlags.Ephemeral
       });
       return;
     }
@@ -53,7 +53,7 @@ export class CommandRegistry {
       
       const errorMessage = {
         content: 'There was an error executing this command!',
-        ephemeral: true
+        flags: [1 << 6] // MessageFlags.Ephemeral
       };
 
       if (interaction.replied || interaction.deferred) {

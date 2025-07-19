@@ -48,7 +48,7 @@ describe('QueueCommand', () => {
 
       expect(mockInteraction.reply).toHaveBeenCalledWith({
         content: 'The queue is empty.',
-        ephemeral: true
+        flags: [1 << 6] // MessageFlags.Ephemeral
       });
     });
 

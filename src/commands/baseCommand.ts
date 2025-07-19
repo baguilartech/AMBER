@@ -18,16 +18,24 @@ export abstract class BaseCommandClass implements BaseCommand {
   }
 
   protected async replyError(interaction: ChatInputCommandInteraction, message: string): Promise<void> {
-    await interaction.reply({
-      content: message,
-      ephemeral: true
-    });
+    try {
+      await interaction.reply({
+        content: message,
+        flags: [1 << 6] // MessageFlags.Ephemeral
+      });
+    } catch (error) {
+      logger.error('Failed to reply with error message - interaction may have expired:', error);
+    }
   }
 
   protected async replySuccess(interaction: ChatInputCommandInteraction, message: string): Promise<void> {
-    await interaction.reply({
-      content: message
-    });
+    try {
+      await interaction.reply({
+        content: message
+      });
+    } catch (error) {
+      logger.error('Failed to reply with success message - interaction may have expired:', error);
+    }
   }
 
   protected async executeBooleanOperation(

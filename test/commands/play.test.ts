@@ -78,7 +78,7 @@ describe('PlayCommand', () => {
 
       expect(mockInteraction.reply).toHaveBeenCalledWith({
         content: 'You need to be in a voice channel to play music!',
-        ephemeral: true
+        flags: [1 << 6] // MessageFlags.Ephemeral
       });
     });
 
@@ -316,6 +316,19 @@ describe('PlayCommand', () => {
 
       expect(handleErrorSpy).toHaveBeenCalledWith(mockInteraction, expect.any(Error), 'play');
       handleErrorSpy.mockRestore();
+    });
+
+    it('should handle defer reply errors gracefully', async () => {
+      mockInteraction.options.getString.mockReturnValue('test song');
+      mockInteraction.deferReply.mockRejectedValue(new Error('Interaction expired'));
+      
+      const loggerSpy = jest.spyOn(require('../../src/utils/logger').logger, 'error');
+
+      await playCommand.execute(mockInteraction);
+
+      expect(loggerSpy).toHaveBeenCalledWith('Failed to defer reply - interaction may have expired:', expect.any(Error));
+      // Should return early, so no further processing
+      expect(mockQueueManager.addSong).not.toHaveBeenCalled();
     });
 
     it('should not trigger prebuffering when queue is not playing', async () => {

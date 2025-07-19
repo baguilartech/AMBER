@@ -92,8 +92,18 @@ describe('BaseCommandClass', () => {
 
       expect(mockInteraction.reply).toHaveBeenCalledWith({
         content: message,
-        ephemeral: true
+        flags: [1 << 6] // MessageFlags.Ephemeral
       });
+    });
+
+    it('should handle reply errors gracefully', async () => {
+      const message = 'Error message';
+      const loggerSpy = jest.spyOn(require('../../src/utils/logger').logger, 'error');
+      mockInteraction.reply.mockRejectedValue(new Error('Interaction expired'));
+
+      await testCommand.testReplyError(mockInteraction, message);
+
+      expect(loggerSpy).toHaveBeenCalledWith('Failed to reply with error message - interaction may have expired:', expect.any(Error));
     });
   });
 
@@ -106,6 +116,16 @@ describe('BaseCommandClass', () => {
       expect(mockInteraction.reply).toHaveBeenCalledWith({
         content: message
       });
+    });
+
+    it('should handle reply errors gracefully', async () => {
+      const message = 'Success message';
+      const loggerSpy = jest.spyOn(require('../../src/utils/logger').logger, 'error');
+      mockInteraction.reply.mockRejectedValue(new Error('Interaction expired'));
+
+      await testCommand.testReplySuccess(mockInteraction, message);
+
+      expect(loggerSpy).toHaveBeenCalledWith('Failed to reply with success message - interaction may have expired:', expect.any(Error));
     });
   });
 
@@ -147,7 +167,7 @@ describe('BaseCommandClass', () => {
       expect(operation).toHaveBeenCalled();
       expect(mockInteraction.reply).toHaveBeenCalledWith({
         content: errorMessage,
-        ephemeral: true
+        flags: [1 << 6] // MessageFlags.Ephemeral
       });
     });
 

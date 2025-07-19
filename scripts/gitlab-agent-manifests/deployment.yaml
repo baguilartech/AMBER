@@ -29,7 +29,7 @@ spec:
         image: "registry.gitlab.com/gitlab-org/cluster-integration/gitlab-agent/agentk:v18.1.0"
         args:
         - --token-file=/config/token
-        - --kas-address=wss://192.168.5.11/-/kubernetes-agent/
+        - --kas-address=wss://${KAS_HOST}/-/kubernetes-agent/
         - --kas-insecure-skip-tls-verify
         env:
         - name: POD_NAMESPACE

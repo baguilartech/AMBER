@@ -1,5 +1,5 @@
 #!/bin/bash
-# Script to create Kubernetes secret with Prodigal Studios Root CA certificate
+# Script to create Kubernetes secret with DOMAIN Root CA certificate
 
 set -e
 
@@ -11,10 +11,10 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 NAMESPACE="gitlab-agent-production"
-SECRET_NAME="prodigal-ca-certificate"
-CA_URL="http://ca.prodigalpros.com:8080/?action=ca-cert"
+SECRET_NAME="DOMAIN-ca-certificate"
+CA_URL="http://ca.DOMAIN.com:8080/?action=ca-cert"
 
-echo -e "${BLUE}🔧 Creating Prodigal Studios Root CA Certificate Secret${NC}"
+echo -e "${BLUE}🔧 Creating DOMAIN Root CA Certificate Secret${NC}"
 echo "=================================================="
 
 # Check if kubectl is available
@@ -49,7 +49,7 @@ echo -e "${GREEN}✅ CA certificate downloaded successfully${NC}"
 # Create the secret
 echo "Creating Kubernetes secret..."
 kubectl create secret generic "$SECRET_NAME" \
-    --from-literal=prodigal-ca.crt="$CA_CERT" \
+    --from-literal=DOMAIN-ca.crt="$CA_CERT" \
     --namespace="$NAMESPACE" \
     --dry-run=client -o yaml | kubectl apply -f -
 

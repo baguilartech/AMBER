@@ -63,7 +63,7 @@ describe('ResumeCommand', () => {
       expect(mockMusicPlayer.resume).toHaveBeenCalledWith('guild-123');
       expect(mockInteraction.reply).toHaveBeenCalledWith({
         content: 'Nothing is currently paused.',
-        ephemeral: true
+        flags: [1 << 6] // MessageFlags.Ephemeral
       });
     });
   });
