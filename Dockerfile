@@ -1,4 +1,4 @@
-FROM node:20.18.1-bookworm-slim
+FROM node:24.4.1-bookworm-slim
 
 # Install security updates and dependencies
 RUN apt-get update && apt-get upgrade -y \
