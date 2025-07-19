@@ -23,10 +23,11 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 
 # Install all dependencies (including dev dependencies for build)
-RUN npm ci
+RUN npm ci --ignore-scripts
 
-# Copy source code
-COPY . .
+# Copy source code (explicitly copy only necessary files)
+COPY src/ ./src/
+COPY tsconfig.json ./
 
 # Build the application and clean up dependencies
 RUN npm run build && \
