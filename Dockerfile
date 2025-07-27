@@ -43,7 +43,12 @@ ARG SENTRY_AUTH_TOKEN
 ENV SENTRY_AUTH_TOKEN=$SENTRY_AUTH_TOKEN
 
 # Build the application and clean up dependencies
-RUN npm run build && \
+RUN if [ -n "$SENTRY_AUTH_TOKEN" ]; then \
+        npm run build; \
+    else \
+        echo "SENTRY_AUTH_TOKEN not available, building without Sentry sourcemaps"; \
+        tsc; \
+    fi && \
     npm prune --omit=dev && \
     groupadd -g 1001 nodejs && \
     useradd -r -u 1001 -g nodejs discord && \
