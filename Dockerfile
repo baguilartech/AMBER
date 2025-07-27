@@ -47,7 +47,7 @@ RUN if [ -n "$SENTRY_AUTH_TOKEN" ]; then \
         npm run build; \
     else \
         echo "SENTRY_AUTH_TOKEN not available, building without Sentry sourcemaps"; \
-        tsc; \
+        npx tsc; \
     fi && \
     npm prune --omit=dev && \
     groupadd -g 1001 nodejs && \
