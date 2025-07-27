@@ -4,10 +4,32 @@ import { BaseCommand } from '../types';
 import { MusicPlayer } from '../services/musicPlayer';
 import { QueueManager } from '../services/queueManager';
 import { logger } from '../utils/logger';
+import { ErrorTracking, SentryLogger, LogContext } from '../utils/monitoring';
 
 export abstract class BaseCommandClass implements BaseCommand {
   abstract get data(): SlashCommandBuilder;
-  abstract execute(interaction: ChatInputCommandInteraction): Promise<void>;
+  
+  // Public execute method that wraps the actual implementation with tracing
+  async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+    const commandName = this.data.name;
+    const guildId = this.getGuildId(interaction);
+    const userId = interaction.user.id;
+
+    return ErrorTracking.traceCommand(commandName, guildId, userId, async () => {
+      // Set user context for this command execution
+      ErrorTracking.setUser(userId, interaction.user.username);
+      ErrorTracking.addBreadcrumb(`Command executed: ${commandName}`, 'command', {
+        guildId,
+        commandName,
+        channelId: interaction.channelId
+      });
+      
+      return this.executeCommand(interaction);
+    });
+  }
+
+  // Abstract method that subclasses implement - this is the actual command logic
+  protected abstract executeCommand(interaction: ChatInputCommandInteraction): Promise<void>;
 
   protected getGuildId(interaction: ChatInputCommandInteraction): string {
     return interaction.guildId!;
@@ -17,25 +39,53 @@ export abstract class BaseCommandClass implements BaseCommand {
     await ErrorHandler.handleCommandError(interaction, error, commandName);
   }
 
-  protected async replyError(interaction: ChatInputCommandInteraction, message: string): Promise<void> {
+  protected async sendReply(
+    interaction: ChatInputCommandInteraction, 
+    message: string, 
+    isError: boolean = false
+  ): Promise<void> {
+    const replyType = isError ? 'error' : 'success';
+    const commandName = `${replyType}-reply`;
+    
     try {
-      await interaction.reply({
-        content: message,
-        flags: [1 << 6] // MessageFlags.Ephemeral
-      });
+      if (interaction.replied || interaction.deferred) {
+        await interaction.editReply({
+          content: message
+        });
+      } else if (interaction.isRepliable()) {
+        await interaction.reply({
+          content: message,
+          ...(isError && { flags: [1 << 6] }) // MessageFlags.Ephemeral for errors only
+        });
+      } else {
+        logger.warn('Interaction no longer repliable', { 
+          commandName
+        });
+      }
     } catch (error) {
-      logger.error('Failed to reply with error message - interaction may have expired:', error);
+      if (error && typeof error === 'object' && 'code' in error && (error as { code: number }).code === 10062) {
+        logger.warn(`Interaction expired - cannot send ${replyType} message`, {
+          userId: interaction.user.id,
+          guildId: interaction.guildId,
+          commandName,
+          message
+        });
+      } else {
+        SentryLogger.error(`Failed to reply with ${replyType} message`, error as Error, {
+          userId: interaction.user.id,
+          guildId: interaction.guildId,
+          commandName
+        });
+      }
     }
   }
 
+  protected async replyError(interaction: ChatInputCommandInteraction, message: string): Promise<void> {
+    await this.sendReply(interaction, message, true);
+  }
+
   protected async replySuccess(interaction: ChatInputCommandInteraction, message: string): Promise<void> {
-    try {
-      await interaction.reply({
-        content: message
-      });
-    } catch (error) {
-      logger.error('Failed to reply with success message - interaction may have expired:', error);
-    }
+    await this.sendReply(interaction, message, false);
   }
 
   protected async executeBooleanOperation(
@@ -46,7 +96,24 @@ export abstract class BaseCommandClass implements BaseCommand {
     commandName: string
   ): Promise<void> {
     const guildId = this.getGuildId(interaction);
-    logger.info(`${commandName} command executed by ${interaction.user.username} in guild ${guildId}`);
+    logger.info(LogContext.command(commandName, guildId, interaction.user.username));
+    
+    // Defer the reply immediately to prevent timeout
+    try {
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.deferReply();
+      }
+    } catch (deferError) {
+      if (deferError && typeof deferError === 'object' && 'code' in deferError && (deferError as { code: number }).code === 10062) {
+        logger.warn('Interaction already expired, cannot defer', {
+          commandName,
+          guildId,
+          userId: interaction.user.id
+        });
+        return;
+      }
+      throw deferError;
+    }
     
     try {
       const result = operation();

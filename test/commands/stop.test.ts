@@ -21,9 +21,14 @@ describe('StopCommand', () => {
     mockInteraction = {
       guildId: 'guild-123',
       user: {
+        id: 'test-user-id',
         username: 'testuser'
       },
-      reply: jest.fn().mockResolvedValue(undefined)
+      reply: jest.fn().mockResolvedValue(undefined),
+      editReply: jest.fn().mockResolvedValue(undefined),
+      isRepliable: jest.fn().mockReturnValue(true),
+      replied: false,
+      deferred: false
     };
 
     stopCommand = new StopCommand(mockMusicPlayer);
@@ -45,6 +50,11 @@ describe('StopCommand', () => {
 
   describe('execute', () => {
     it('should stop playback successfully', async () => {
+      // Mock that interaction hasn't been replied/deferred yet
+      mockInteraction.replied = false;
+      mockInteraction.deferred = false;
+      mockInteraction.isRepliable.mockReturnValue(true);
+      
       await stopCommand.execute(mockInteraction);
 
       expect(mockMusicPlayer.stop).toHaveBeenCalledWith('guild-123');

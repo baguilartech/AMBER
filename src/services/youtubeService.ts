@@ -4,6 +4,7 @@ import { logger } from '../utils/logger';
 import { URLValidator } from '../utils/urlValidator';
 import { BaseMusicService } from './baseMusicService';
 import ytdl from '@distube/ytdl-core';
+import { ErrorTracking } from '../utils/monitoring';
 
 interface YouTubeSearchItem {
   id: { videoId: string };
@@ -25,7 +26,8 @@ export class YouTubeService extends BaseMusicService {
   }
 
   async search(query: string): Promise<Song[]> {
-    try {
+    return ErrorTracking.traceApiCall('youtube', 'search', async () => {
+      try {
       // Optimize for speed: fewer results but faster processing
       const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&key=${this.apiKey}&maxResults=5&order=relevance&videoCategoryId=10`;
       
@@ -78,15 +80,17 @@ export class YouTubeService extends BaseMusicService {
         }
       }
 
-      this.logSearchResults(songs.length, query);
-      return songs;
-    } catch (error) {
-      return this.handleSearchError(error as Error);
-    }
+        this.logSearchResults(songs.length, query);
+        return songs;
+      } catch (error) {
+        return this.handleSearchError(error as Error);
+      }
+    });
   }
 
   async getStreamUrl(song: Song): Promise<string> {
-    try {
+    return ErrorTracking.traceApiCall('youtube', 'get-stream-url', async () => {
+      try {
       logger.info(`Getting stream info for: ${song.title} - ${song.url}`);
       const info = await ytdl.getInfo(song.url);
       
@@ -118,12 +122,13 @@ export class YouTubeService extends BaseMusicService {
         throw new Error('No suitable audio format found');
       }
       
-      logger.info(`Selected format for ${song.title}: ${format.itag} - ${format.container} - ${format.contentLength} bytes`);
-      return format.url;
-    } catch (error) {
-      logger.error(`Error getting stream URL for ${song.title}:`, error);
-      throw error;
-    }
+        logger.info(`Selected format for ${song.title}: ${format.itag} - ${format.container} - ${format.contentLength} bytes`);
+        return format.url;
+      } catch (error) {
+        logger.error(`Error getting stream URL for ${song.title}:`, error);
+        throw error;
+      }
+    });
   }
 
 

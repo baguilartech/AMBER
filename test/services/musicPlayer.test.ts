@@ -355,6 +355,25 @@ describe('MusicPlayer', () => {
       loggerInfoSpy.mockRestore();
     });
 
+    it('should skip duplicate play request when already in progress', async () => {
+      const { logger } = require('../../src/utils/logger');
+      const loggerWarnSpy = jest.spyOn(logger, 'warn').mockImplementation();
+      
+      mockQueueManager.getCurrentSong.mockReturnValue(mockSong);
+      
+      // Set play in progress
+      (musicPlayer as any).playInProgress.set('guild123', true);
+      
+      await musicPlayer.play('guild123', mockVoiceConnection);
+      
+      expect(loggerWarnSpy).toHaveBeenCalledWith('Play already in progress for guild guild123, skipping duplicate request');
+      expect(mockAudioPlayer.play).not.toHaveBeenCalled();
+      
+      // Cleanup
+      (musicPlayer as any).playInProgress.delete('guild123');
+      loggerWarnSpy.mockRestore();
+    });
+
     it('should handle play error and skip', async () => {
       mockQueueManager.getCurrentSong.mockReturnValue(mockSong);
       (createAudioPlayer as jest.Mock).mockImplementation(() => {

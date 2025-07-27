@@ -2,26 +2,34 @@
 
 Welcome to the documentation for Amber, a self-hosted Discord music bot with multi-platform streaming support!
 
-## 🚀 Quick Navigation
+## 📋 Complete Documentation Index
 
 ### 📚 Getting Started
 - [📦 Installation Guide](Installation) - Set up Amber in minutes
-- [⚙️ Configuration](Configuration) - Configure your bot settings
+- [⚙️ Configuration](Configuration) - Configure your bot settings and API keys
 - [🛠️ Troubleshooting](Troubleshooting) - Common issues and solutions
 
 ### 🎮 Using Amber
 - [🎵 Commands Reference](Commands) - Complete command documentation
 
 ### 👩‍💻 Development
+
+#### 📖 Development Guides  
 - [🏗️ Architecture](Architecture) - System design and patterns
 - [📖 Development Guide](Developing) - Get started contributing
 - [🧪 Testing Guide](Testing) - Testing strategies and best practices
 - [🚀 Release Guide](Releasing) - Release management
 
-### 🛠️ How To Contribute
+#### 🚀 Pipeline & Deployment
+- [☸️ Kubernetes Deployment](Kubernetes) - Production K8s deployment guide
+- [🔗 GitLab K8s Integration](GitLab%20Kubernetes%20Integration) - CI/CD with Kubernetes
+- [🤖 GitLab Agent Setup](GitLab%20Agent%20Setup) - Configure GitLab agents
+- [🔄 Renovate Bot](Renovate) - Automated dependency management
+
+#### 🛠️ How To Contribute
 - [🎼 Adding Music Services](Adding%20Music%20Services) - Integrate new streaming platforms
 - [⚡ Creating Commands](Creating%20Commands) - Build new Discord commands
-- [🎮 Adding Features](DAdding%20Features%20and%20Games) - Extend with new features
+- [🎮 Adding Features and Games](Adding%20Features%20and%20Games) - Extend with new features
 
 ## ✨ What is Amber?
 

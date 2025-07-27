@@ -1,3 +1,6 @@
+// IMPORTANT: Must import instrument.ts first for Sentry initialization
+import './instrument';
+
 import { Client, GatewayIntentBits, REST, Routes } from 'discord.js';
 import { validateConfig, apiKeys } from './utils/config';
 import { logger } from './utils/logger';
@@ -13,6 +16,7 @@ import { PauseCommand } from './commands/pause';
 import { ResumeCommand } from './commands/resume';
 import { VolumeCommand } from './commands/volume';
 import { NowPlayingCommand } from './commands/nowplaying';
+import { ErrorTracking } from './utils/monitoring';
 
 class AmberBot {
   private readonly client: Client;
@@ -95,6 +99,10 @@ class AmberBot {
 
     this.client.on('error', (error) => {
       logger.error('Discord client error:', error);
+      ErrorTracking.captureException(error, {
+        component: 'discord-client',
+        event: 'client-error'
+      });
     });
 
     process.on('SIGINT', () => {
@@ -128,6 +136,10 @@ class AmberBot {
       logger.info('Successfully reloaded application (/) commands.');
     } catch (error) {
       logger.error('Error registering commands:', error);
+      ErrorTracking.captureException(error as Error, {
+        component: 'command-registration',
+        operation: 'register-slash-commands'
+      });
     }
   }
 
@@ -142,8 +154,30 @@ class AmberBot {
   }
 }
 
+// Global error handlers for unhandled errors
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  ErrorTracking.captureException(new Error(`Unhandled Rejection: ${reason}`), {
+    component: 'global-error-handler',
+    type: 'unhandled-rejection'
+  });
+});
+
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception:', error);
+  ErrorTracking.captureException(error, {
+    component: 'global-error-handler',
+    type: 'uncaught-exception'
+  });
+  process.exit(1);
+});
+
 const bot = new AmberBot();
 bot.start().catch(error => {
   logger.error('Fatal error:', error);
+  ErrorTracking.captureException(error as Error, {
+    component: 'bot-startup',
+    operation: 'start'
+  });
   process.exit(1);
 });

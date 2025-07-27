@@ -18,7 +18,17 @@ describe('CommandRegistry', () => {
 
     mockInteraction = {
       commandName: 'test',
-      reply: jest.fn()
+      guildId: 'test-guild',
+      channelId: 'test-channel',
+      id: 'test-interaction',
+      user: {
+        id: 'test-user',
+        username: 'testuser'
+      },
+      replied: false,
+      deferred: false,
+      reply: jest.fn(),
+      followUp: jest.fn()
     } as any;
 
     jest.clearAllMocks();
@@ -153,6 +163,39 @@ describe('CommandRegistry', () => {
         content: 'There was an error executing this command!',
         flags: [1 << 6] // MessageFlags.Ephemeral
       });
+    });
+
+    it('should log error when reply fails after command error', async () => {
+      const { logger } = require('../../src/utils/logger');
+      const loggerSpy = jest.spyOn(logger, 'error').mockImplementation();
+      const commandError = new Error('Command failed');
+      const replyError = new Error('Interaction expired');
+      
+      mockCommand.execute = jest.fn().mockRejectedValue(commandError);
+      mockInteraction.replied = false;
+      mockInteraction.deferred = false;
+      mockInteraction.reply = jest.fn().mockRejectedValue(replyError);
+      
+      await commandRegistry.executeCommand(mockInteraction);
+      
+      expect(loggerSpy).toHaveBeenCalledWith('Failed to send error message to user:', replyError);
+      loggerSpy.mockRestore();
+    });
+
+    it('should log error when followUp fails after command error', async () => {
+      const { logger } = require('../../src/utils/logger');
+      const loggerSpy = jest.spyOn(logger, 'error').mockImplementation();
+      const commandError = new Error('Command failed');
+      const followUpError = new Error('Interaction expired');
+      
+      mockCommand.execute = jest.fn().mockRejectedValue(commandError);
+      mockInteraction.replied = true;
+      mockInteraction.followUp = jest.fn().mockRejectedValue(followUpError);
+      
+      await commandRegistry.executeCommand(mockInteraction);
+      
+      expect(loggerSpy).toHaveBeenCalledWith('Failed to send error message to user:', followUpError);
+      loggerSpy.mockRestore();
     });
   });
 });

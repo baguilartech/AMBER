@@ -1,6 +1,7 @@
 import { Song, Queue } from '../types';
 import { botConfig } from '../utils/config';
 import { logger } from '../utils/logger';
+import { SentryLogger } from '../utils/monitoring';
 
 export class QueueManager {
   private readonly queues: Map<string, Queue> = new Map();
@@ -27,7 +28,12 @@ export class QueueManager {
     }
     
     if (!song.title || !song.artist) {
-      logger.error(`Invalid song data for guild ${guildId}: title=${song.title}, artist=${song.artist}`);
+      SentryLogger.error(`Invalid song data for guild ${guildId}: title=${song.title}, artist=${song.artist}`, undefined, {
+        guildId,
+        songTitle: song.title,
+        songArtist: song.artist,
+        songPlatform: song.platform
+      });
       return false;
     }
 

@@ -9,6 +9,9 @@
 - Git
 - Discord Bot Token (for testing)
 - Music Service API Keys (YouTube, Spotify, SoundCloud optional)
+- Sentry DSN (optional, for error tracking and performance monitoring)
+- Docker (optional, for containerized development)
+- Kubernetes (optional, for k8s deployment)
 
 ### Development Setup
 
@@ -57,8 +60,11 @@ flowchart TD
    cp .env.example .env.development
    ```
 
-4. **Database Setup**
+4. **Database Setup (Planned Feature)**
    ```bash
+   # Note: Database support is planned for a future release
+   # The following commands will be available once implemented:
+   
    # Start PostgreSQL
    npm run db:start
    
@@ -80,12 +86,14 @@ graph TD
     A --> D[wiki/]
     A --> E[scripts/]
     A --> F[data/]
+    A --> G[k8s/]
     
     B --> B1[commands/]
     B --> B2[services/]
     B --> B3[types/]
     B --> B4[utils/]
     B --> B5[index.ts]
+    B --> B6[instrument.ts]
     
     B1 --> B1a[baseCommand.ts]
     B1 --> B1b[play.ts]
@@ -109,6 +117,8 @@ graph TD
     B4 --> B4c[logger.ts]
     B4 --> B4d[errorHandler.ts]
     B4 --> B4e[formatters.ts]
+    B4 --> B4f[metrics.ts]
+    B4 --> B4g[monitoring.ts]
     
     C --> C1[commands/]
     C --> C2[services/]
@@ -119,10 +129,17 @@ graph TD
     D --> D2[Getting Started/]
     D --> D3[Using AMBER/]
     
+    G --> G1[configmap.yaml]
+    G --> G2[deployment.yaml]
+    G --> G3[service.yaml]
+    G --> G4[filebeat-sidecar.yaml]
+    G --> G5[deploy.sh]
+    
     style A fill:#e1f5fe
     style B fill:#f3e5f5
     style C fill:#e8f5e8
     style D fill:#fff3e0
+    style G fill:#e1f5fe
 ```
 
 ## Architecture
@@ -188,9 +205,9 @@ graph TB
 3. **Queue Management**
    - Song queue operations
    - Playlist handling
-   - User favorites
+   - User favorites (planned)
 
-4. **Database Layer**
+4. **Database Layer (Planned Feature)**
    - Prisma ORM
    - Migration system
    - Guild settings
@@ -385,7 +402,9 @@ export class MyMusicService implements MusicService {
 }
 ```
 
-## Database Operations
+## Database Operations (Planned Feature)
+
+> **Note:** Database support with Prisma ORM is planned for a future release. The following examples show the intended implementation.
 
 ### Using Prisma
 
@@ -414,6 +433,8 @@ const users = await prisma.user.findMany({
 ```
 
 ### Creating Migrations
+
+> **Note:** These commands will be available once database support is implemented.
 
 ```bash
 # Create a new migration
@@ -657,9 +678,65 @@ flowchart TD
    ```
 5. **CI/CD will handle the rest**
 
+## Deployment
+
+### Docker Deployment
+
+```bash
+# Build Docker image
+docker build -t amber-bot .
+
+# Run with Docker Compose
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+```
+
+### Kubernetes Deployment
+
+```bash
+# Deploy to Kubernetes
+cd k8s
+./deploy.sh
+
+# Check deployment status
+kubectl get pods -n amber
+
+# View logs
+kubectl logs -f deployment/amber -n amber
+```
+
+### Monitoring Setup
+
+#### Sentry Configuration
+
+```typescript
+// Automatically initialized via instrument.ts
+// Environment variables:
+// SENTRY_DSN=your-sentry-dsn
+// SENTRY_ENVIRONMENT=production
+```
+
+#### Prometheus Metrics
+
+```bash
+# Metrics available at http://localhost:5150/metrics
+# Configure Prometheus to scrape this endpoint
+```
+
+#### ELK Stack Integration
+
+```yaml
+# Filebeat sidecar automatically ships logs to ELK
+# Configure ELK_HOST and ELK_PORT in environment
+```
+
 ## Resources
 
 - [Discord.js Documentation](https://discord.js.org/)
 - [Prisma Documentation](https://www.prisma.io/docs/)
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/)
 - [Jest Testing Framework](https://jestjs.io/docs/getting-started)
+- [Sentry Documentation](https://docs.sentry.io/)
+- [Kubernetes Documentation](https://kubernetes.io/docs/)

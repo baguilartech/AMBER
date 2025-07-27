@@ -1,8 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:base",
-    "schedule:weeklyNonOfficeHours"
+    "config:base"
   ],
   "timezone": "America/Los_Angeles",
   "labels": ["dependencies"],
@@ -73,5 +72,8 @@
   "dependencyDashboard": true,
   "dependencyDashboardTitle": "Dependency Dashboard",
   "dependencyDashboardHeader": "This issue lists Renovate updates and detected dependencies. Read the [Dependency Dashboard docs](https://docs.renovatebot.com/key-concepts/dashboard/) to learn more.",
-  "dependencyDashboardFooter": "- [ ] <!-- rebase-check -->If you want to rebase/retry any of the above PRs, check this box"
+  "dependencyDashboardFooter": "- [ ] <!-- rebase-check -->If you want to rebase/retry any of the above PRs, check this box",
+  "platformAutomerge": false,
+  "requiredStatusChecks": ["test", "lint"],
+  "addLabels": ["dependencies", "renovate"]
 }

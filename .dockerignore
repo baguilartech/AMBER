@@ -25,9 +25,11 @@ sonar-project.properties
 .env.local
 .env.production
 .env.staging
+.sentryclirc
 jest.config.js
 
 #Folders
+.claude/
 .github/
 .gitlab/
 argocd/
@@ -35,13 +37,13 @@ analysis/
 coverage/
 data/
 dist/
+k8s/
 logs/
 node_modules/
 renovate/
 reports/
-wiki/
-k8s/
 scripts/
 secrets/
 config/secrets/
 test/
+wiki/

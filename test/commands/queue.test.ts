@@ -17,9 +17,15 @@ describe('QueueCommand', () => {
     mockInteraction = {
       guildId: 'test-guild',
       user: {
+        id: 'test-user-id',
         username: 'testuser'
       },
-      reply: jest.fn()
+      reply: jest.fn(),
+      editReply: jest.fn().mockResolvedValue(undefined),
+      deferReply: jest.fn().mockResolvedValue(undefined),
+      isRepliable: jest.fn().mockReturnValue(true),
+      replied: false,
+      deferred: false
     } as any;
 
     jest.clearAllMocks();

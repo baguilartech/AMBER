@@ -21,9 +21,18 @@ describe('ResumeCommand', () => {
     mockInteraction = {
       guildId: 'guild-123',
       user: {
+        id: 'test-user-id',
         username: 'testuser'
       },
-      reply: jest.fn().mockResolvedValue(undefined)
+      reply: jest.fn().mockResolvedValue(undefined),
+      editReply: jest.fn().mockResolvedValue(undefined),
+      deferReply: jest.fn().mockImplementation(() => { 
+        mockInteraction.deferred = true;
+        return Promise.resolve();
+      }),
+      isRepliable: jest.fn().mockReturnValue(true),
+      replied: false,
+      deferred: false
     };
 
     resumeCommand = new ResumeCommand(mockMusicPlayer);
@@ -50,7 +59,7 @@ describe('ResumeCommand', () => {
       await resumeCommand.execute(mockInteraction);
 
       expect(mockMusicPlayer.resume).toHaveBeenCalledWith('guild-123');
-      expect(mockInteraction.reply).toHaveBeenCalledWith({
+      expect(mockInteraction.editReply).toHaveBeenCalledWith({
         content: 'Resumed the music.'
       });
     });
@@ -61,9 +70,8 @@ describe('ResumeCommand', () => {
       await resumeCommand.execute(mockInteraction);
 
       expect(mockMusicPlayer.resume).toHaveBeenCalledWith('guild-123');
-      expect(mockInteraction.reply).toHaveBeenCalledWith({
-        content: 'Nothing is currently paused.',
-        flags: [1 << 6] // MessageFlags.Ephemeral
+      expect(mockInteraction.editReply).toHaveBeenCalledWith({
+        content: 'Nothing is currently paused.'
       });
     });
   });

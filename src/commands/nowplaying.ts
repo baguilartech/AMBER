@@ -2,6 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { BaseQueueCommand } from './baseCommand';
 import { createNowPlayingEmbed, formatVolume } from '../utils/formatters';
 import { logger } from '../utils/logger';
+import { LogContext } from '../utils/monitoring';
 
 export class NowPlayingCommand extends BaseQueueCommand {
 
@@ -11,13 +12,13 @@ export class NowPlayingCommand extends BaseQueueCommand {
       .setDescription('Show the currently playing song');
   }
 
-  async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+  protected async executeCommand(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
       const guildId = this.getGuildId(interaction);
       const currentSong = this.queueManager.getCurrentSong(guildId);
       const queue = this.queueManager.getQueue(guildId);
       
-      logger.info(`Now playing command executed by ${interaction.user.username} in guild ${guildId}`);
+      logger.info(LogContext.command('nowplaying', guildId, interaction.user.username));
 
       if (!currentSong) {
         logger.info(`No song currently playing for guild ${guildId}`);

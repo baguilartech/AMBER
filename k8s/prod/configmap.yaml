@@ -12,7 +12,7 @@ data:
   
   # Monitoring configuration
   ENABLE_METRICS: "true"
-  METRICS_PORT: "3000"
+  METRICS_PORT: "5150"
   PROMETHEUS_ENDPOINT: "/metrics"
   
   # Logging configuration
@@ -20,8 +20,13 @@ data:
   LOG_OUTPUT: "stdout"
   
   # Health check configuration
-  HEALTH_CHECK_PORT: "3001"
+  HEALTH_CHECK_PORT: "5150"
   HEALTH_CHECK_PATH: "/health"
+  
+  # Bot configuration
+  MAX_QUEUE_SIZE: "100"
+  DEFAULT_VOLUME: "0.5"
+  AUTO_LEAVE_TIMEOUT: "300000"
   
   # ELK Stack integration
   ELK_ENABLED: "true"

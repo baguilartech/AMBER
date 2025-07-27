@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { BaseMusicPlayerCommand } from './baseCommand';
 import { logger } from '../utils/logger';
+import { LogContext } from '../utils/monitoring';
 
 export class StopCommand extends BaseMusicPlayerCommand {
 
@@ -10,10 +11,10 @@ export class StopCommand extends BaseMusicPlayerCommand {
       .setDescription('Stop the music and clear the queue');
   }
 
-  async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+  protected async executeCommand(interaction: ChatInputCommandInteraction): Promise<void> {
     const guildId = this.getGuildId(interaction);
     
-    logger.info(`Stop command executed by ${interaction.user.username} in guild ${guildId}`);
+    logger.info(LogContext.command('stop', guildId, interaction.user.username));
     
     try {
       this.musicPlayer.stop(guildId);

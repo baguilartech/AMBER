@@ -3,6 +3,7 @@ import { YouTubeService } from './youtubeService';
 import { SpotifyService } from './spotifyService';
 import { SoundCloudService } from './soundcloudService';
 import { logger } from '../utils/logger';
+import { ErrorTracking } from '../utils/monitoring';
 
 export class ServiceFactory {
   private static youtubeService: YouTubeService;
@@ -64,6 +65,11 @@ export class ServiceFactory {
           return song ? [song] : [];
         } catch (error) {
           logger.error(`Error getting song from URL with service:`, error);
+          ErrorTracking.captureException(error as Error, {
+            errorType: 'service_url_error',
+            service: service.constructor.name,
+            url: query
+          });
           return [];
         }
       }

@@ -14,6 +14,7 @@ import { logger } from '../utils/logger';
 import { QueueManager } from './queueManager';
 import { ServiceFactory } from './serviceFactory';
 import { ErrorHandler } from '../utils/errorHandler';
+import { ErrorTracking, SentryCapture, SentryLogger } from '../utils/monitoring';
 import { PrebufferService } from './prebufferService';
 
 export class MusicPlayer {
@@ -22,6 +23,7 @@ export class MusicPlayer {
   private readonly queueManager: QueueManager;
   private readonly prebufferService: PrebufferService;
   private readonly skipInProgress: Map<string, boolean> = new Map();
+  private readonly playInProgress: Map<string, boolean> = new Map();
 
   constructor(queueManager: QueueManager) {
     this.queueManager = queueManager;
@@ -31,12 +33,21 @@ export class MusicPlayer {
   async play(guildId: string, connection: VoiceConnection): Promise<void> {
     const currentSong = this.queueManager.getCurrentSong(guildId);
     
-    if (!currentSong) {
-      logger.info(`No song to play in guild ${guildId}`);
-      return;
-    }
+    return ErrorTracking.traceMusicOperation('play', 'stream', async () => {
+      if (!currentSong) {
+        logger.info(`No song to play in guild ${guildId}`);
+        return;
+      }
 
-    try {
+      // Prevent concurrent play operations
+      if (this.playInProgress.get(guildId)) {
+        logger.warn(`Play already in progress for guild ${guildId}, skipping duplicate request`);
+        return;
+      }
+      
+      this.playInProgress.set(guildId, true);
+      
+      try {
       const player = this.getOrCreatePlayer(guildId);
       this.connections.set(guildId, connection);
       
@@ -78,6 +89,12 @@ export class MusicPlayer {
       // Add resource error handling
       resource.playStream.on('error', (error) => {
         logger.error(`Stream error for ${currentSong.title}:`, error);
+        ErrorTracking.captureException(error, {
+          errorType: 'stream_error',
+          guildId: guildId,
+          songTitle: currentSong.title,
+          songPlatform: currentSong.platform
+        });
       });
 
       const queue = this.queueManager.getQueue(guildId);
@@ -91,56 +108,85 @@ export class MusicPlayer {
 
       logger.info(`Now playing: ${currentSong.title} by ${currentSong.artist} in guild ${guildId}`);
       
+      // Add breadcrumb for music playback
+      ErrorTracking.addBreadcrumb(`Started playing: ${currentSong.title}`, 'music', {
+        guildId,
+        platform: currentSong.platform,
+        songTitle: currentSong.title,
+        artist: currentSong.artist
+      });
+      
+      // Capture this as a separate Sentry event for maximum visibility
+      SentryCapture.captureOperation('music-started', currentSong.platform, {
+        guildId,
+        songTitle: currentSong.title,
+        artist: currentSong.artist,
+        url: currentSong.url
+      });
+      
       // Start prebuffering next songs in the background
       this.startPrebuffering(guildId);
-    } catch (error) {
-      await ErrorHandler.handleVoiceError(guildId, error as Error);
-      await this.skip(guildId);
-    }
+      } catch (error) {
+        await ErrorHandler.handleVoiceError(guildId, error as Error);
+        await this.skip(guildId);
+      } finally {
+        this.playInProgress.delete(guildId);
+      }
+    }, currentSong?.title);
   }
 
   async skip(guildId: string): Promise<Song | null> {
-    const player = this.players.get(guildId);
-    const queue = this.queueManager.getQueue(guildId);
-        
-    // Validate that there's something to skip
-    if (!queue.isPlaying || queue.songs.length === 0) {
-      return null;
-    }
-    
-    // Set skip flag to prevent idle handler interference
-    this.skipInProgress.set(guildId, true);
-    
-    // Stop current playback first to avoid race conditions
-    if (player) {
-      player.stop();
-    }
-    
-    // Remove current song and get next
-    const nextSong = this.queueManager.advance(guildId);
-    
-    if (nextSong) {
-      const connection = this.connections.get(guildId);
-      if (connection) {
-        try {
-          await this.play(guildId, connection);
-        } catch (error) {
-          logger.error(`Error playing next song after skip in guild ${guildId}:`, error);
-          // Continue with next song or stop
-          await this.skip(guildId);
+    return ErrorTracking.traceMusicOperation('skip', 'control', async () => {
+      const player = this.players.get(guildId);
+      const queue = this.queueManager.getQueue(guildId);
+          
+      // Validate that there's something to skip
+      if (!queue.isPlaying || queue.songs.length === 0) {
+        return null;
+      }
+      
+      // Set skip flag to prevent idle handler interference
+      this.skipInProgress.set(guildId, true);
+      
+      // Stop current playback first to avoid race conditions
+      if (player) {
+        player.stop();
+      }
+      
+      // Remove current song and get next
+      const nextSong = this.queueManager.advance(guildId);
+      
+      if (nextSong) {
+        const connection = this.connections.get(guildId);
+        if (connection) {
+          try {
+            await this.play(guildId, connection);
+          } catch (error) {
+            logger.error(`Error playing next song after skip in guild ${guildId}:`, error);
+            ErrorTracking.captureException(error as Error, {
+              errorType: 'skip_playback_error',
+              guildId: guildId,
+              operation: 'skip_to_next'
+            });
+            // Continue with next song or stop
+            await this.skip(guildId);
+          }
+        } else {
+          SentryLogger.error(`No voice connection found for guild ${guildId} during skip`, undefined, {
+          guildId,
+          operation: 'skip'
+        });
         }
       } else {
-        logger.error(`No voice connection found for guild ${guildId} during skip`);
+        // No more songs - stop everything
+        this.stop(guildId);
       }
-    } else {
-      // No more songs - stop everything
-      this.stop(guildId);
-    }
-    
-    // Clear skip flag
-    this.skipInProgress.delete(guildId);
-    
-    return nextSong;
+      
+      // Clear skip flag
+      this.skipInProgress.delete(guildId);
+      
+      return nextSong;
+    });
   }
 
   async previous(guildId: string): Promise<Song | null> {
@@ -169,12 +215,20 @@ export class MusicPlayer {
           await this.play(guildId, connection);
         } catch (error) {
           logger.error(`Error playing previous song in guild ${guildId}:`, error);
+          ErrorTracking.captureException(error as Error, {
+            errorType: 'previous_playback_error',
+            guildId: guildId,
+            operation: 'previous_song'
+          });
           // Try to continue with current or next song
           this.skipInProgress.delete(guildId);
           return null;
         }
       } else {
-        logger.error(`No voice connection found for guild ${guildId} during previous`);
+        SentryLogger.error(`No voice connection found for guild ${guildId} during previous`, undefined, {
+          guildId,
+          operation: 'previous'
+        });
       }
     }
     
@@ -236,10 +290,18 @@ export class MusicPlayer {
           return true;
         } catch (error) {
           logger.error(`Error setting volume to ${volume} in guild ${guildId}:`, error);
+          ErrorTracking.captureException(error as Error, {
+            errorType: 'volume_control_error',
+            guildId: guildId,
+            volume: volume
+          });
           return false;
         }
       } else {
-        logger.error(`No volume control available for player in guild ${guildId}`);
+        SentryLogger.error(`No volume control available for player in guild ${guildId}`, undefined, {
+          guildId,
+          operation: 'volume-control'
+        });
       }
     } else {
       logger.warn(`Cannot set volume in guild ${guildId}: player not playing (status: ${player?.state.status || 'no player'})`);
@@ -255,6 +317,7 @@ export class MusicPlayer {
     // Clear queue and stop player first to prevent idle handler interference
     this.queueManager.clear(guildId);
     this.skipInProgress.delete(guildId);
+    this.playInProgress.delete(guildId);
     
     // Clear prebuffer cache for this guild
     this.prebufferService.clearGuildCache(guildId);
@@ -307,6 +370,10 @@ export class MusicPlayer {
       
       player.on('error', async (error) => {
         logger.error(`Audio player error in guild ${guildId}:`, error);
+        ErrorTracking.captureException(error, {
+          errorType: 'audio_player_error',
+          guildId: guildId
+        });
         // Try to skip to next song on error
         await this.skip(guildId);
       });
@@ -332,6 +399,10 @@ export class MusicPlayer {
       await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
     } catch (error) {
       logger.error('Failed to establish voice connection:', error);
+      ErrorTracking.captureException(error as Error, {
+        errorType: 'voice_connection_timeout',
+        component: 'voice_connection'
+      });
       throw error;
     }
   }

@@ -31,10 +31,15 @@ describe('SkipCommand', () => {
     mockInteraction = {
       guildId: 'guild-123',
       user: {
+        id: 'test-user-id',
         username: 'testuser'
       },
       deferReply: jest.fn().mockResolvedValue(undefined),
-      editReply: jest.fn().mockResolvedValue(undefined)
+      editReply: jest.fn().mockResolvedValue(undefined),
+      reply: jest.fn().mockResolvedValue(undefined),
+      isRepliable: jest.fn().mockReturnValue(true),
+      replied: false,
+      deferred: false
     };
 
     skipCommand = new SkipCommand(mockMusicPlayer);
@@ -90,6 +95,35 @@ describe('SkipCommand', () => {
       expect(mockInteraction.deferReply).toHaveBeenCalled();
       expect(handleErrorSpy).toHaveBeenCalledWith(mockInteraction, expect.any(Error), 'skip');
       handleErrorSpy.mockRestore();
+    });
+
+    it('should handle non-repliable interaction', async () => {
+      mockInteraction.isRepliable.mockReturnValue(false);
+      const loggerSpy = jest.spyOn(require('../../src/utils/logger').logger, 'warn');
+
+      await skipCommand.execute(mockInteraction);
+
+      expect(loggerSpy).toHaveBeenCalledWith('Skip command interaction no longer repliable', expect.any(Object));
+      expect(mockInteraction.deferReply).not.toHaveBeenCalled();
+    });
+
+    it('should handle defer errors with code 10062', async () => {
+      const deferError = new Error('Interaction expired');
+      (deferError as any).code = 10062;
+      mockInteraction.deferReply.mockRejectedValue(deferError);
+      const loggerSpy = jest.spyOn(require('../../src/utils/logger').logger, 'warn');
+
+      await skipCommand.execute(mockInteraction);
+
+      expect(loggerSpy).toHaveBeenCalledWith('Skip command interaction already expired', expect.any(Object));
+      expect(mockMusicPlayer.skip).not.toHaveBeenCalled();
+    });
+
+    it('should re-throw non-10062 defer errors', async () => {
+      const deferError = new Error('Some other defer error');
+      mockInteraction.deferReply.mockRejectedValue(deferError);
+
+      await expect(skipCommand.execute(mockInteraction)).rejects.toThrow('Some other defer error');
     });
   });
 }); 

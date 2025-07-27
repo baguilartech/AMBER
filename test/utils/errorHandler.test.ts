@@ -12,6 +12,13 @@ describe('ErrorHandler', () => {
     mockInteraction = {
       replied: false,
       deferred: false,
+      guildId: 'test-guild',
+      channelId: 'test-channel',
+      id: 'test-interaction',
+      user: {
+        id: 'test-user',
+        username: 'testuser'
+      },
       reply: jest.fn().mockResolvedValue(undefined),
       followUp: jest.fn().mockResolvedValue(undefined)
     } as any;

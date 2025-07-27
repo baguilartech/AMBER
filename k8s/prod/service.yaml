@@ -1,0 +1,24 @@
+---
+# Service for Discord bot with hostNetwork
+# Since the bot uses hostNetwork: true, it binds directly to host port 5150
+# External Prometheus scrapes directly at kubernetes:5150
+apiVersion: v1
+kind: Service
+metadata:
+  name: amber-discord-bot
+  namespace: amber
+  labels:
+    app: discord-bot
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "5150"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  clusterIP: None  # Headless service for hostNetwork pods
+  ports:
+  - name: metrics
+    port: 5150
+    protocol: TCP
+  selector:
+    app: discord-bot

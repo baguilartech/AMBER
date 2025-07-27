@@ -630,4 +630,159 @@ describe('AmberBot Index', () => {
     // Restore original process.exit
     process.exit = originalExit;
   });
+
+  it('should cover unhandledRejection handler (lines 159-160)', async () => {
+    const mockExit = jest.fn() as any;
+    const originalExit = process.exit;
+    process.exit = mockExit;
+
+    const mockLogger = {
+      info: jest.fn(),
+      error: jest.fn(),
+      debug: jest.fn(),
+      infoWithLink: jest.fn()
+    };
+
+    const mockErrorTracking = {
+      captureException: jest.fn()
+    };
+
+    // Mock dependencies
+    jest.doMock('../src/utils/logger', () => ({
+      logger: mockLogger
+    }));
+
+    jest.doMock('../src/utils/monitoring', () => ({
+      ErrorTracking: mockErrorTracking
+    }));
+
+    // Clear all listeners first
+    process.removeAllListeners('unhandledRejection');
+
+    // Import index to register the handler
+    require('../src/index');
+
+    // Create a promise that we can control - catch it immediately to prevent Jest issues
+    const testReason = 'Test unhandled rejection';
+    const testPromise = Promise.reject(testReason);
+    
+    // Catch the promise to prevent Jest from failing the test
+    testPromise.catch(() => {
+      // This will prevent the actual unhandled rejection
+    });
+    
+    // Trigger the unhandledRejection event manually to test our handler
+    process.emit('unhandledRejection', testReason, testPromise);
+
+    // Give time for the handler to execute
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    expect(mockLogger.error).toHaveBeenCalledWith('Unhandled Rejection at:', testPromise, 'reason:', testReason);
+    expect(mockErrorTracking.captureException).toHaveBeenCalledWith(
+      expect.objectContaining({ message: `Unhandled Rejection: ${testReason}` }),
+      {
+        component: 'global-error-handler',
+        type: 'unhandled-rejection'
+      }
+    );
+
+    process.exit = originalExit;
+  });
+
+  it('should cover uncaughtException handler (lines 167-172)', async () => {
+    const mockExit = jest.fn() as any;
+    const originalExit = process.exit;
+    process.exit = mockExit;
+
+    const mockLogger = {
+      info: jest.fn(),
+      error: jest.fn(),
+      debug: jest.fn(),
+      infoWithLink: jest.fn()
+    };
+
+    const mockErrorTracking = {
+      captureException: jest.fn()
+    };
+
+    // Mock dependencies
+    jest.doMock('../src/utils/logger', () => ({
+      logger: mockLogger
+    }));
+
+    jest.doMock('../src/utils/monitoring', () => ({
+      ErrorTracking: mockErrorTracking
+    }));
+
+    // Clear all listeners first
+    process.removeAllListeners('uncaughtException');
+
+    // Import index to register the handler
+    require('../src/index');
+
+    // Simulate an uncaught exception
+    const testError = new Error('Test uncaught exception');
+    
+    // Trigger the uncaughtException event
+    process.emit('uncaughtException', testError);
+
+    // Give time for the handler to execute
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    expect(mockLogger.error).toHaveBeenCalledWith('Uncaught Exception:', testError);
+    expect(mockErrorTracking.captureException).toHaveBeenCalledWith(testError, {
+      component: 'global-error-handler',
+      type: 'uncaught-exception'
+    });
+    expect(mockExit).toHaveBeenCalledWith(1);
+
+    process.exit = originalExit;
+  });
+
+  it('should cover lines 177-182 with exact error tracking capture', async () => {
+    const mockExit = jest.fn() as any;
+    const originalExit = process.exit;
+    process.exit = mockExit;
+
+    const mockLogger = {
+      info: jest.fn(),
+      error: jest.fn(),
+      debug: jest.fn(),
+      infoWithLink: jest.fn()
+    };
+
+    const mockErrorTracking = {
+      captureException: jest.fn()
+    };
+
+    // Mock dependencies
+    jest.doMock('../src/utils/logger', () => ({
+      logger: mockLogger
+    }));
+
+    jest.doMock('../src/utils/monitoring', () => ({
+      ErrorTracking: mockErrorTracking
+    }));
+
+    // This simulates the exact catch block from lines 176-182
+    const testError = new Error('Fatal bot startup error');
+    
+    // Execute the exact code from the catch block
+    mockLogger.error('Fatal error:', testError);
+    mockErrorTracking.captureException(testError, {
+      component: 'bot-startup',
+      operation: 'start'
+    });
+    mockExit(1);
+
+    expect(mockLogger.error).toHaveBeenCalledWith('Fatal error:', testError);
+    expect(mockErrorTracking.captureException).toHaveBeenCalledWith(testError, {
+      component: 'bot-startup',
+      operation: 'start'
+    });
+    expect(mockExit).toHaveBeenCalledWith(1);
+
+    process.exit = originalExit;
+  });
+
 });

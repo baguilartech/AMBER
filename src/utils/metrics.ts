@@ -1,6 +1,7 @@
 import { register, collectDefaultMetrics, Counter, Gauge, Histogram } from 'prom-client';
 import express from 'express';
 import { logger } from './logger';
+import { ErrorTracking } from './monitoring';
 
 // Initialize default metrics collection
 collectDefaultMetrics({ register });
@@ -14,9 +15,15 @@ export const discordMetrics = {
     labelNames: ['command', 'guild_id', 'status']
   }),
 
-  messagesTotal: new Counter({
-    name: 'discord_bot_messages_total',
-    help: 'Total number of messages processed',
+  messagesReceived: new Counter({
+    name: 'discord_bot_messages_received_total',
+    help: 'Total number of messages received',
+    labelNames: ['guild_id', 'type']
+  }),
+
+  messagesSent: new Counter({
+    name: 'discord_bot_messages_sent_total',
+    help: 'Total number of messages sent by bot',
     labelNames: ['guild_id', 'type']
   }),
 
@@ -38,9 +45,9 @@ export const discordMetrics = {
     help: 'Number of guilds the bot is in'
   }),
 
-  membersTotal: new Gauge({
-    name: 'discord_bot_members_total',
-    help: 'Total number of members across all guilds'
+  usersTotal: new Gauge({
+    name: 'discord_bot_users_total',
+    help: 'Total number of users across all guilds'
   }),
 
   activeConnections: new Gauge({
@@ -66,6 +73,25 @@ export const discordMetrics = {
     name: 'discord_bot_api_latency_seconds',
     help: 'Discord API latency',
     buckets: [0.01, 0.05, 0.1, 0.5, 1, 2]
+  }),
+
+  // Discord API specific metrics
+  discordApiRequestDuration: new Histogram({
+    name: 'discord_api_request_duration_seconds',
+    help: 'Discord API request duration',
+    labelNames: ['endpoint', 'method'],
+    buckets: [0.01, 0.05, 0.1, 0.5, 1, 2, 5]
+  }),
+
+  discordApiErrors: new Counter({
+    name: 'discord_api_errors_total',
+    help: 'Discord API errors',
+    labelNames: ['status_code', 'endpoint']
+  }),
+
+  discordApiRateLimit: new Gauge({
+    name: 'discord_api_rate_limit_percentage',
+    help: 'Discord API rate limit usage percentage'
   }),
 
   songLoadDuration: new Histogram({
@@ -112,6 +138,10 @@ export function createMetricsServer(port: number): void {
       res.end(metrics);
     } catch (error) {
       logger.error('Error generating metrics:', error);
+      ErrorTracking.captureException(error as Error, {
+        errorType: 'metrics_generation_error',
+        component: 'prometheus_metrics'
+      });
       res.status(500).end('Error generating metrics');
     }
   });
@@ -148,9 +178,18 @@ export function trackCommand(command: string, guildId: string, duration: number,
 }
 
 // Helper function to update guild metrics
-export function updateGuildMetrics(guilds: number, totalMembers: number): void {
+export function updateGuildMetrics(guilds: number, totalUsers: number): void {
   discordMetrics.guildsTotal.set(guilds);
-  discordMetrics.membersTotal.set(totalMembers);
+  discordMetrics.usersTotal.set(totalUsers);
+}
+
+// Helper function to track message activity
+export function trackMessageReceived(guildId: string, type: string = 'text'): void {
+  discordMetrics.messagesReceived.inc({ guild_id: guildId, type });
+}
+
+export function trackMessageSent(guildId: string, type: string = 'text'): void {
+  discordMetrics.messagesSent.inc({ guild_id: guildId, type });
 }
 
 // Helper function to track voice connections
@@ -175,6 +214,20 @@ export function trackSongPlay(guildId: string, platform: string, loadDuration?: 
 // Helper function to track API latency
 export function trackApiLatency(latency: number): void {
   discordMetrics.apiLatency.observe(latency);
+}
+
+// Helper function to track Discord API requests
+export function trackDiscordApiRequest(endpoint: string, method: string, duration: number, statusCode?: number): void {
+  discordMetrics.discordApiRequestDuration.observe({ endpoint, method }, duration);
+  
+  if (statusCode && statusCode >= 400) {
+    discordMetrics.discordApiErrors.inc({ status_code: statusCode.toString(), endpoint });
+  }
+}
+
+// Helper function to update rate limit status
+export function updateRateLimitStatus(percentage: number): void {
+  discordMetrics.discordApiRateLimit.set(percentage);
 }
 
 // Graceful shutdown

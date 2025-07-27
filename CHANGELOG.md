@@ -2,6 +2,73 @@
 
 All notable changes to the Amber Discord Music Bot project are documented in this file.
 
+## [1.1.4] - 2025-07-21
+
+### 🔧 Enhanced Monitoring & Kubernetes Integration
+
+#### **Sentry Performance Monitoring - Enhanced! 📊**
+- **Full Transaction Tracking**: 100% capture rate for all Discord commands with performance profiling
+- **Comprehensive Integrations**: Added HTTP, Express, Console, and Native Node Fetch monitoring
+- **Performance Profiling**: Added `@sentry/profiling-node` for detailed performance analysis
+- **Enhanced Error Context**: Improved error tracking with transaction context and breadcrumbs
+- **Privacy Protection**: Automatic IP address filtering while maintaining full telemetry
+- **Debug Logging**: Transaction and event logging for complete observability
+
+#### **Kubernetes Deployment - NEW! ☸️**
+- **Full K8s Support**: Complete Kubernetes deployment manifests and configuration
+- **Filebeat Sidecar**: ELK stack integration with automatic log shipping
+- **ConfigMap Management**: Environment configuration through Kubernetes ConfigMaps
+- **Service Exposure**: LoadBalancer service for metrics and health endpoints
+- **Host Networking**: Optional host networking mode for improved connectivity
+- **Automated Deployment**: `deploy.sh` script for streamlined Kubernetes deployments
+- **Certificate Management**: SSL/TLS certificate handling for secure communications
+
+#### **CI/CD Pipeline Improvements**
+- **Variable Substitution**: Fixed SonarQube variable substitution in GitLab CI
+- **Build Order**: Corrected test/build dependency order for proper artifact generation
+- **Environment Variables**: Improved CI variable management for cleaner code
+- **SSL/CA Trust**: Fixed external SSL certificate authority trust issues
+
+### 🔄 Dependency Updates
+
+#### **Monitoring Dependencies**
+- **@sentry/cli**: Added v2.50.0 for release management
+- **@sentry/node**: Maintained v9.39.0 with enhanced configuration
+- **@sentry/profiling-node**: Added v9.39.0 for performance profiling
+
+### 📊 Infrastructure Enhancements
+
+#### **Kubernetes Architecture**
+- **Deployment Configuration**: Production-ready Kubernetes deployment with resource limits
+- **ConfigMap Integration**: Centralized configuration management
+- **Service Discovery**: Kubernetes service for internal and external access
+- **Log Aggregation**: Filebeat sidecar for centralized logging to ELK stack
+- **Health Probes**: Liveness and readiness probes for container health
+- **Resource Management**: CPU and memory limits with proper scaling
+
+#### **Deployment Automation**
+- **deploy.sh Script**: Automated deployment with namespace management
+- **Configuration Validation**: Pre-deployment checks for required variables
+- **Rollout Management**: Controlled deployment with status monitoring
+- **Cleanup Functions**: Proper resource cleanup on deployment failures
+
+### 🐛 Bug Fixes & Maintenance
+
+#### **CI/CD Fixes**
+- **SonarQube Integration**: Fixed variable substitution preventing proper code analysis
+- **Build Dependencies**: Resolved test execution requiring build artifacts
+- **Certificate Trust**: Fixed SSL CA trust issues for external service connections
+- **Metrics Scraping**: Corrected metrics endpoint configuration for Prometheus
+
+### 🔜 Next Steps
+
+- Enhanced Kubernetes autoscaling configuration
+- Distributed tracing with OpenTelemetry
+- Advanced Sentry alerting rules
+- Multi-region deployment support
+
+---
+
 ## [1.1.3] - 2025-07-19
 
 ### 🔧 Monitoring & Observability Enhancements
@@ -629,7 +696,6 @@ test/
 ### 🔄 Configuration Options
 
 #### **Bot Configuration**
-- `BOT_PREFIX`: Command prefix (default: `!`)
 - `MAX_QUEUE_SIZE`: Maximum songs per queue (default: `100`)
 - `DEFAULT_VOLUME`: Initial volume level (default: `0.5`)
 - `AUTO_LEAVE_TIMEOUT`: Auto-disconnect timeout (default: `300000ms`)

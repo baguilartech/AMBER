@@ -1,9 +1,11 @@
 FROM node:20.18.1-bookworm-slim
 
 # Install security updates and dependencies
+ARG CA_SERVER_URL
 RUN apt-get update && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
     ca-certificates \
+    curl \
     ffmpeg \
     g++ \
     libavcodec-extra \
@@ -11,6 +13,11 @@ RUN apt-get update && apt-get upgrade -y \
     libopus0 \
     make \
     python3 \
+    && if [ -n "$CA_SERVER_URL" ]; then \
+        echo "Installing custom CA certificate from $CA_SERVER_URL"; \
+        curl -k "$CA_SERVER_URL" -o /usr/local/share/ca-certificates/prodigalpros-ca.crt; \
+    fi \
+    && update-ca-certificates \
     && apt-get autoremove -y \
     && apt-get autoclean \
     && rm -rf /var/lib/apt/lists/* \
@@ -22,12 +29,18 @@ WORKDIR /usr/src/app
 # Copy package files
 COPY package*.json ./
 
-# Install all dependencies (including dev dependencies for build)
-RUN npm ci --ignore-scripts
+# Install all dependencies (including dev dependencies for build) and rebuild native modules
+RUN npm ci --ignore-scripts && \
+    (npm rebuild @discordjs/opus || echo "Warning: @discordjs/opus rebuild failed, using opusscript fallback") && \
+    npm rebuild ffmpeg-static
 
 # Copy source code (explicitly copy only necessary files)
 COPY src/ ./src/
 COPY tsconfig.json ./
+
+# Accept Sentry auth token as build argument for source maps upload
+ARG SENTRY_AUTH_TOKEN
+ENV SENTRY_AUTH_TOKEN=$SENTRY_AUTH_TOKEN
 
 # Build the application and clean up dependencies
 RUN npm run build && \

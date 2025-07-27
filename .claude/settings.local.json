@@ -13,7 +13,10 @@
       "Bash(curl:*)",
       "Bash(ansible:*)",
       "Bash(npm run test:ci:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(npm run lint)",
+      "Bash(find:*)",
+      "Bash(ls:*)"
     ],
     "deny": []
   }

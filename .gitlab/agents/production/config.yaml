@@ -19,12 +19,10 @@
 ci_access:
   projects:
   - id: discord-bots/Amber
-    default_namespace: amber
     access_as:
       agent: {}
   groups:
   - id: discord-bots
-    default_namespace: amber
     access_as:
       agent: {}
 
@@ -45,10 +43,8 @@ user_access:
     agent: {}
   projects:
   - id: discord-bots/Amber
-    default_namespace: amber
   groups:
   - id: discord-bots
-    default_namespace: amber
 
 flux:
   enabled: false 

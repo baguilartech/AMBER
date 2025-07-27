@@ -172,7 +172,21 @@ SONAR_TOKEN
 - **Required for**: `sonar_scan` job
 - **Note**: If not set, SonarQube analysis will be skipped gracefully
 
-#### 2. **Docker Registry Variables** (Auto-provided by GitLab)
+#### 2. **Docker Hub Authentication** (Required to Avoid Rate Limits)
+```yaml
+DOCKERHUB_USERNAME   # Your Docker Hub username
+DOCKERHUB_TOKEN      # Docker Hub access token (NOT password!)
+```
+- **DOCKERHUB_USERNAME**: Your Docker Hub username
+- **DOCKERHUB_TOKEN**: Docker Hub Personal Access Token (PAT)
+  - **How to create**: 
+    1. Log into Docker Hub → Account Settings → Security → Access Tokens
+    2. Create new token with name "GitLab CI"
+    3. Copy token immediately (you won't see it again)
+- **Required for**: `build-container`, `release-container` jobs
+- **Note**: Without these, you may hit Docker Hub rate limits (toomanyrequests error)
+
+#### 3. **Docker Registry Variables** (Auto-provided by GitLab)
 These are **automatically provided** by GitLab, no setup needed:
 ```yaml
 CI_REGISTRY          # your-gitlab-domain.com:5050 (automatically set)
@@ -181,12 +195,13 @@ CI_REGISTRY_PASSWORD # Auto-generated
 CI_REGISTRY_IMAGE    # Full image path
 ```
 
-#### 3. **Application Environment Variables** (For Runtime)
+#### 4. **Application Environment Variables** (For Runtime)
 Your Discord bot will need these when deployed:
 ```yaml
 DISCORD_TOKEN         # Your Discord bot token
 SPOTIFY_CLIENT_ID     # Spotify API client ID
 SPOTIFY_CLIENT_SECRET # Spotify API client secret
+YOUTUBE_API_KEY       # YouTube API key for music streaming
 ```
 
 ### 🖥️ How to Set Them Up in GitLab
@@ -201,11 +216,14 @@ Click **Add variable** for each one:
 
 | Variable | Value | Protected | Masked | Scope |
 |----------|-------|-----------|--------|-------|
+| `DOCKERHUB_USERNAME` | `your_dockerhub_username` | ❌ | ❌ | All |
+| `DOCKERHUB_TOKEN` | `your_dockerhub_access_token` | ✅ | ✅ | All |
 | `SONAR_HOST_URL` | `http://your-sonar-server:9000` | ❌ | ❌ | All |
 | `SONAR_TOKEN` | `squ_your_sonar_token` | ✅ | ✅ | All |
 | `DISCORD_TOKEN` | `your_discord_bot_token` | ✅ | ✅ | All |
 | `SPOTIFY_CLIENT_ID` | `your_spotify_client_id` | ✅ | ❌ | All |
 | `SPOTIFY_CLIENT_SECRET` | `your_spotify_client_secret` | ✅ | ✅ | All |
+| `YOUTUBE_API_KEY` | `your_youtube_api_key` | ✅ | ✅ | All |
 
 #### **Step 3: Variable Settings**
 - **Protected**: ✅ Only available in protected branches (main/master)
@@ -215,13 +233,19 @@ Click **Add variable** for each one:
 ### 🚨 Currently Required vs Optional
 
 #### **✅ Currently Required for Pipeline to Work**
-- **None!** - Your pipeline will run without any manual variables
-- Docker registry variables are auto-provided
-- SonarQube gracefully skips if URL not set
+- **Docker Hub Authentication** - Required to avoid rate limits:
+  ```yaml
+  DOCKERHUB_USERNAME=your_dockerhub_username
+  DOCKERHUB_TOKEN=your_dockerhub_access_token
+  ```
+- **Production Deployment** - Required for production deployment:
+  ```yaml
+  YOUTUBE_API_KEY=your_youtube_api_key
+  ```
 
 #### **🔧 Required for Full Functionality**
 ```yaml
-# For SonarQube code analysis
+# For SonarQube code analysis (optional)
 SONAR_HOST_URL=http://your-sonar-server:9000
 SONAR_TOKEN=squ_your_sonar_token
 
@@ -229,6 +253,14 @@ SONAR_TOKEN=squ_your_sonar_token
 DISCORD_TOKEN=your_token_here
 SPOTIFY_CLIENT_ID=your_id_here  
 SPOTIFY_CLIENT_SECRET=your_secret_here
+YOUTUBE_API_KEY=your_youtube_api_key
+
+# For monitoring and observability (optional)
+SENTRY_DSN=your_sentry_dsn
+SENTRY_ENVIRONMENT=production
+ELK_HOST=your_elk_host
+ELK_PORT=8080
+PROMETHEUS_PORT=5150
 ```
 
 ### 💡 Pro Tips
@@ -307,6 +339,49 @@ build → security_scan → build_docker
 - Check `node_modules/` and `dist/` contents
 - Verify coverage reports in `coverage/` directory
 
+## 🔍 Testing with Monitoring
+
+### Sentry Integration Testing
+
+When testing locally with Sentry:
+
+```bash
+# Set Sentry DSN for local testing
+export SENTRY_DSN=your_test_dsn
+export SENTRY_ENVIRONMENT=development
+
+# Run tests with Sentry enabled
+npm test
+```
+
+### Performance Testing
+
+```bash
+# Run performance tests with metrics collection
+export PROMETHEUS_PORT=5150
+npm run test:performance
+
+# Check metrics endpoint
+curl http://localhost:5150/metrics
+```
+
+### Error Tracking Verification
+
+```typescript
+// Test error tracking in your tests
+describe('Sentry Integration', () => {
+  it('should capture errors', async () => {
+    // Your test that generates an error
+    // Check Sentry dashboard for captured error
+  });
+  
+  it('should track performance', async () => {
+    // Your test with performance tracking
+    // Verify transaction appears in Sentry
+  });
+});
+```
+
 ## 📚 Additional Resources
 
 - [GitLab CI/CD Documentation](https://docs.gitlab.com/ee/ci/)
@@ -314,6 +389,7 @@ build → security_scan → build_docker
 - [ESLint Configuration](https://eslint.org/docs/user-guide/configuring)
 - [SonarQube Analysis](https://docs.sonarqube.org/latest/)
 - [Docker Best Practices](https://docs.docker.com/develop/dev-best-practices/)
+- [Sentry Testing Guide](https://docs.sentry.io/platforms/node/guides/express/)
 
 ## 📝 Contributing
 

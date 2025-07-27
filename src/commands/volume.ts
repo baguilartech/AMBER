@@ -16,7 +16,7 @@ export class VolumeCommand extends BaseMusicPlayerCommand {
       ) as SlashCommandBuilder;
   }
 
-  async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+  protected async executeCommand(interaction: ChatInputCommandInteraction): Promise<void> {
     const guildId = this.getGuildId(interaction);
     const volumeLevel = interaction.options.getInteger('level', true);
     const volume = volumeLevel / 100;

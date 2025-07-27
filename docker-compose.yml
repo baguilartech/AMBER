@@ -1,16 +1,20 @@
 services:
   discord-bot:
-    build: .
+    build: 
+      context: .
+      args:
+        CA_SERVER_URL: "${CA_SERVER_URL}"
+        SENTRY_AUTH_TOKEN: "${SENTRY_AUTH_TOKEN}"
     container_name: amber-discord-bot
     restart: unless-stopped
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=${NODE_ENV:-production}
+      - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED:-0}
     env_file:
       - .env
     ports:
       - "${PROMETHEUS_PORT:-5150}:${PROMETHEUS_PORT:-5150}"  # Prometheus metrics endpoint
     volumes:
-      - ./data:/usr/src/app/data
       - ./logs:/usr/src/app/logs
     networks:
       - discord-bot-network

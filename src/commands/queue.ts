@@ -2,6 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { BaseQueueCommand } from './baseCommand';
 import { createQueueEmbed, formatVolume } from '../utils/formatters';
 import { logger } from '../utils/logger';
+import { LogContext } from '../utils/monitoring';
 import { Queue } from '../types';
 
 function getQueueStatus(queue: Queue): string {
@@ -17,12 +18,12 @@ export class QueueCommand extends BaseQueueCommand {
       .setDescription('Show the current music queue');
   }
 
-  async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+  protected async executeCommand(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
       const guildId = this.getGuildId(interaction);
       const queue = this.queueManager.getQueue(guildId);
       
-      logger.info(`Queue command executed by ${interaction.user.username} in guild ${guildId}`);
+      logger.info(LogContext.command('queue', guildId, interaction.user.username));
 
       if (queue.songs.length === 0) {
         logger.info(`Queue is empty for guild ${guildId}`);

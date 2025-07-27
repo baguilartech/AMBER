@@ -50,10 +50,17 @@ describe('PlayCommand', () => {
         getString: jest.fn()
       },
       member: mockMember,
+      user: {
+        id: 'test-user-id',
+        username: 'TestUser'
+      },
       guildId: 'test-guild',
       reply: jest.fn(),
       deferReply: jest.fn(),
       editReply: jest.fn(),
+      isRepliable: jest.fn().mockReturnValue(true),
+      replied: false,
+      deferred: false,
       guild: mockGuild
     };
 
@@ -76,10 +83,9 @@ describe('PlayCommand', () => {
 
       await playCommand.execute(mockInteraction);
 
-      expect(mockInteraction.reply).toHaveBeenCalledWith({
-        content: 'You need to be in a voice channel to play music!',
-        flags: [1 << 6] // MessageFlags.Ephemeral
-      });
+      expect(mockInteraction.editReply).toHaveBeenCalledWith(
+        'You need to be in a voice channel to play music!'
+      );
     });
 
     it('should defer reply and search for songs', async () => {
@@ -320,15 +326,25 @@ describe('PlayCommand', () => {
 
     it('should handle defer reply errors gracefully', async () => {
       mockInteraction.options.getString.mockReturnValue('test song');
-      mockInteraction.deferReply.mockRejectedValue(new Error('Interaction expired'));
+      const error = new Error('Interaction expired');
+      (error as any).code = 10062;
+      mockInteraction.deferReply.mockRejectedValue(error);
       
-      const loggerSpy = jest.spyOn(require('../../src/utils/logger').logger, 'error');
+      const loggerSpy = jest.spyOn(require('../../src/utils/logger').logger, 'warn');
 
       await playCommand.execute(mockInteraction);
 
-      expect(loggerSpy).toHaveBeenCalledWith('Failed to defer reply - interaction may have expired:', expect.any(Error));
+      expect(loggerSpy).toHaveBeenCalledWith('Play command interaction already expired', expect.any(Object));
       // Should return early, so no further processing
       expect(mockQueueManager.addSong).not.toHaveBeenCalled();
+    });
+
+    it('should re-throw non-10062 defer errors', async () => {
+      mockInteraction.options.getString.mockReturnValue('test song');
+      const error = new Error('Some other defer error');
+      mockInteraction.deferReply.mockRejectedValue(error);
+
+      await expect(playCommand.execute(mockInteraction)).rejects.toThrow('Some other defer error');
     });
 
     it('should not trigger prebuffering when queue is not playing', async () => {
@@ -427,6 +443,32 @@ describe('PlayCommand', () => {
 
       // Restore real timers
       jest.useRealTimers();
+    });
+
+    it('should prevent duplicate command execution', async () => {
+      const { logger } = require('../../src/utils/logger');
+      const loggerWarnSpy = jest.spyOn(logger, 'warn').mockImplementation();
+      
+      mockInteraction.options.getString.mockReturnValue('test song');
+      
+      // Mock the commandInProgress map to simulate a command already in progress
+      // The key format is: ${guildId}-${userId}-${query}
+      const userId = mockInteraction.user.id;
+      const guildId = mockInteraction.guildId;
+      const query = 'test song';
+      const commandKey = `${guildId}-${userId}-${query}`;
+      (playCommand as any).commandInProgress.set(commandKey, true);
+      
+      await playCommand.execute(mockInteraction);
+      
+      expect(loggerWarnSpy).toHaveBeenCalledWith('Play command already in progress for TestUser in guild test-guild with query: test song');
+      expect(mockInteraction.editReply).toHaveBeenCalledWith(
+        'A play command with this query is already being processed. Please wait...'
+      );
+      
+      // Cleanup
+      (playCommand as any).commandInProgress.delete(commandKey);
+      loggerWarnSpy.mockRestore();
     });
   });
 });

@@ -33,7 +33,6 @@ SOUNDCLOUD_CLIENT_ID=your_soundcloud_client_id
 |----------|-------------|----------|
 | `NODE_ENV` | Environment mode | `production` |
 | `LOG_LEVEL` | Logging level | `info` |
-| `BOT_PREFIX` | Command prefix (legacy) | `!` |
 | `MAX_QUEUE_SIZE` | Maximum songs in queue | `100` |
 | `DEFAULT_VOLUME` | Default volume (0.0-1.0) | `0.5` |
 | `AUTO_LEAVE_TIMEOUT` | Auto-leave timeout (ms) | `300000` |
@@ -44,6 +43,10 @@ SOUNDCLOUD_CLIENT_ID=your_soundcloud_client_id
 |----------|-------------|----------|
 | `PROMETHEUS_PORT` | Metrics server port | `5150` |
 | `SENTRY_DSN` | Sentry error tracking URL | _(disabled)_ |
+| `SENTRY_ENVIRONMENT` | Sentry environment name | `production` |
+| `SENTRY_AUTH_TOKEN` | Sentry auth token (CI/CD only) | _(disabled)_ |
+| `SENTRY_ORG` | Sentry organization (CI/CD only) | _(disabled)_ |
+| `SENTRY_PROJECT` | Sentry project name (CI/CD only) | _(disabled)_ |
 | `ELK_HOST` | Elasticsearch/Logstash host | _(disabled)_ |
 | `ELK_PORT` | ELK stack port | `8080` |
 
@@ -65,7 +68,6 @@ SPOTIFY_CLIENT_SECRET=your_spotify_client_secret_here
 SOUNDCLOUD_CLIENT_ID=your_soundcloud_client_id_here
 
 # Bot Configuration
-BOT_PREFIX=!
 MAX_QUEUE_SIZE=100
 DEFAULT_VOLUME=0.5
 AUTO_LEAVE_TIMEOUT=300000
@@ -77,6 +79,7 @@ LOG_LEVEL=info
 # Monitoring & Observability (Optional)
 PROMETHEUS_PORT=5150
 SENTRY_DSN=your_sentry_dsn_here
+SENTRY_ENVIRONMENT=production
 ELK_HOST=your_elk_host
 ELK_PORT=8080
 ```
@@ -134,16 +137,18 @@ Metrics include:
 #### Error Tracking with Sentry
 Set `SENTRY_DSN` to enable automatic error reporting with:
 - Exception tracking with context
-- Performance monitoring
-- User session tracking (privacy-compliant)
+- Performance monitoring with 100% transaction capture
+- User session tracking (privacy-compliant, IP addresses filtered)
 - Release tracking
+- Performance profiling with detailed transaction analysis
+- Comprehensive integrations (HTTP, Express, Console, Native Node Fetch)
 
-#### ELK Stack Integration
-Configure `ELK_HOST` and `ELK_PORT` for structured logging:
-- JSON formatted logs for Elasticsearch
-- Automatic log shipping via HTTP
+#### ELK Stack Integration (Kubernetes Deployment)
+ELK integration is available via Kubernetes deployment with Filebeat sidecar:
+- Automatic log shipping to Elasticsearch
 - Rich metadata including service info
 - Error correlation and debugging
+- Configure `ELK_HOST` and `ELK_PORT` in Kubernetes ConfigMap
 
 ## Troubleshooting
 

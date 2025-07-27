@@ -40,9 +40,15 @@ describe('NowPlayingCommand', () => {
     mockInteraction = {
       guildId: 'guild-123',
       user: {
+        id: 'test-user-id',
         username: 'testuser'
       },
-      reply: jest.fn().mockResolvedValue(undefined)
+      reply: jest.fn().mockResolvedValue(undefined),
+      editReply: jest.fn().mockResolvedValue(undefined),
+      deferReply: jest.fn().mockResolvedValue(undefined),
+      isRepliable: jest.fn().mockReturnValue(true),
+      replied: false,
+      deferred: false
     };
 
     nowPlayingCommand = new NowPlayingCommand(mockQueueManager);

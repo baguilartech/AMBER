@@ -19,7 +19,6 @@ export interface Queue {
 }
 
 export interface BotConfig {
-  prefix: string;
   maxQueueSize: number;
   defaultVolume: number;
   autoLeaveTimeout: number;

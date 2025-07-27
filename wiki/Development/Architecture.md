@@ -90,6 +90,7 @@ graph TB
   - Discord client initialization
   - Command registration
   - Event handling
+  - Sentry initialization via instrument.ts
 
 ### 2. Command Layer
 - **Base Class**: `BaseCommand` - Simple shared functionality
@@ -119,12 +120,13 @@ graph TB
 
 ### 5. Utility Layer
 - **Logger**: Basic logging functionality
-- **ErrorHandler**: Simple error management
+- **ErrorHandler**: Enhanced error management with Sentry integration
 - **Config**: Environment configuration
 - **URLValidator**: URL validation
 - **Formatters**: String formatting utilities
 - **Metrics**: Prometheus metrics collection and reporting
-- **Monitoring**: Health checks, error tracking, and observability
+- **Monitoring**: Health checks, Sentry error tracking, and observability
+- **Instrument**: Sentry initialization and configuration
 
 ## Design Patterns
 
@@ -194,7 +196,7 @@ flowchart LR
 ```
 src/
 ├── commands/              # Discord slash commands (9 files)
-│   ├── baseCommand.ts    # Base command class
+│   ├── baseCommand.ts    # Base command class with Sentry transaction support
 │   ├── play.ts           # Play command
 │   ├── pause.ts          # Pause command
 │   ├── resume.ts         # Resume command
@@ -215,14 +217,15 @@ src/
 ├── utils/                # Utility functions
 │   ├── commandRegistry.ts     # Command registration
 │   ├── config.ts             # Configuration
-│   ├── errorHandler.ts       # Error handling
+│   ├── errorHandler.ts       # Error handling with Sentry integration
 │   ├── logger.ts             # Logging
 │   ├── urlValidator.ts       # URL validation
 │   ├── formatters.ts         # String formatting
 │   ├── metrics.ts            # Prometheus metrics collection
-│   └── monitoring.ts         # Health checks and observability
+│   └── monitoring.ts         # Health checks, Sentry, and observability
 ├── types/                # TypeScript types
 │   └── index.ts             # Type definitions
+├── instrument.ts         # Sentry initialization and configuration
 └── index.ts              # Main entry point
 ```
 
@@ -299,10 +302,16 @@ export const config = {
     clientId: process.env.SOUNDCLOUD_CLIENT_ID,
   },
   bot: {
-    prefix: process.env.BOT_PREFIX || '!',
     maxQueueSize: parseInt(process.env.MAX_QUEUE_SIZE || '100'),
     defaultVolume: parseFloat(process.env.DEFAULT_VOLUME || '0.5'),
     autoLeaveTimeout: parseInt(process.env.AUTO_LEAVE_TIMEOUT || '300000'),
+  },
+  monitoring: {
+    prometheusPort: parseInt(process.env.PROMETHEUS_PORT || '5150'),
+    sentryDsn: process.env.SENTRY_DSN,
+    sentryEnvironment: process.env.SENTRY_ENVIRONMENT || 'production',
+    elkHost: process.env.ELK_HOST,
+    elkPort: parseInt(process.env.ELK_PORT || '8080'),
   }
 };
 ```
@@ -353,4 +362,31 @@ export const config = {
 - Resource limits enforced
 - No sensitive data in logs
 
-This simple architecture provides a solid foundation for a maintainable Discord music bot while keeping complexity minimal and focusing on core functionality.
+## Deployment Architecture
+
+### Kubernetes Deployment
+```
+k8s/
+├── configmap.yaml         # Environment configuration
+├── deployment.yaml        # Main application deployment
+├── service.yaml          # LoadBalancer service
+├── filebeat-sidecar.yaml # ELK log shipping
+├── namespace.yaml        # Namespace definition
+└── deploy.sh            # Automated deployment script
+```
+
+### Deployment Features
+- **ConfigMap Integration**: Centralized environment variable management
+- **Sidecar Logging**: Filebeat container for log aggregation to ELK stack
+- **Health Probes**: Liveness and readiness checks for container health
+- **Resource Limits**: CPU and memory constraints for optimal resource usage
+- **Service Discovery**: LoadBalancer service for external access to metrics
+- **Automated Scripts**: `deploy.sh` for streamlined deployment process
+
+### Monitoring & Observability
+- **Sentry Integration**: Full transaction tracking with 100% capture rate
+- **Prometheus Metrics**: Performance and operational metrics collection
+- **ELK Stack Logging**: Centralized log aggregation and analysis
+- **Health Endpoints**: `/health` and `/metrics` endpoints for monitoring
+
+This architecture provides a solid foundation for a maintainable Discord music bot with production-ready deployment capabilities and comprehensive observability.

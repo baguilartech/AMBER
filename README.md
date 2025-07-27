@@ -16,10 +16,11 @@ A self-hosted Discord music bot with multi-platform streaming support. Stream mu
 - 🔍 **Intelligent Search**: Enhanced YouTube search with official channel prioritization
 - ⚡ **Prebuffering**: Smart audio prebuffering for seamless playback
 - 🛡️ **Security**: Automated vulnerability scanning and dependency management
-- 🧪 **100% Test Coverage**: Comprehensive test suite with perfect coverage
+- 🧪 **Comprehensive Testing**: 30+ test files with full functionality coverage
 - 📊 **Prometheus Metrics**: Real-time monitoring of performance and usage
-- 🛡️ **Sentry Integration**: Production-ready error tracking and monitoring
-- 📈 **ELK Stack Support**: Structured logging for enterprise environments
+- 🛡️ **Sentry Integration**: Production-ready error tracking with performance profiling
+- 📈 **ELK Stack Support**: Enterprise logging via Kubernetes Filebeat sidecar
+- ☸️ **Kubernetes Ready**: Full K8s deployment with Filebeat sidecar and ConfigMaps
 
 ## Quick Start
 
@@ -55,7 +56,6 @@ SPOTIFY_CLIENT_SECRET=your_spotify_client_secret_here
 SOUNDCLOUD_CLIENT_ID=your_soundcloud_client_id_here
 
 # Bot Configuration
-BOT_PREFIX=!
 MAX_QUEUE_SIZE=100
 DEFAULT_VOLUME=0.5
 AUTO_LEAVE_TIMEOUT=300000
@@ -67,6 +67,7 @@ LOG_LEVEL=info
 # Monitoring & Observability (Optional)
 PROMETHEUS_PORT=5150
 SENTRY_DSN=your_sentry_dsn_here
+SENTRY_ENVIRONMENT=production
 ELK_HOST=your_elk_host
 ELK_PORT=8080
 ```
@@ -87,6 +88,17 @@ docker-compose logs -f
 ```bash
 docker-compose down
 ```
+
+### Kubernetes Deployment
+
+For production-grade deployment with full observability:
+
+```bash
+cd k8s
+./deploy.sh
+```
+
+See [Kubernetes Deployment Guide](wiki/Development/Pipeline/Kubernetes.md) for detailed instructions.
 
 ### Local Development
 
@@ -169,7 +181,6 @@ The bot can be configured through environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `BOT_PREFIX` | `!` | Command prefix (legacy) |
 | `MAX_QUEUE_SIZE` | `100` | Maximum songs in queue |
 | `DEFAULT_VOLUME` | `0.5` | Default volume (0.0-1.0) |
 | `AUTO_LEAVE_TIMEOUT` | `300000` | Auto-leave timeout (ms) |
@@ -223,12 +234,15 @@ src/
 ├── utils/          # Shared utilities
 │   ├── commandRegistry.ts     # Command registration system
 │   ├── config.ts             # Configuration management
-│   ├── errorHandler.ts       # Centralized error handling
+│   ├── errorHandler.ts       # Centralized error handling with Sentry
 │   ├── formatters.ts         # String and duration formatting
 │   ├── logger.ts             # Logging system
-│   └── urlValidator.ts       # URL validation and parsing
+│   ├── urlValidator.ts       # URL validation and parsing
+│   ├── metrics.ts            # Prometheus metrics collection
+│   └── monitoring.ts         # Health checks and Sentry integration
 ├── types/          # TypeScript type definitions
 │   └── index.ts             # Shared type definitions
+├── instrument.ts   # Sentry initialization
 └── index.ts        # Main bot entry point
 ```
 
@@ -253,8 +267,8 @@ src/
 
 ### Testing
 
-The project maintains **100% test coverage** across all metrics:
-- **60+ test cases** covering all functionality
+The project maintains comprehensive test coverage:
+- **30+ test files** covering all functionality
 - **Command tests** with mock Discord interactions
 - **Service tests** with comprehensive integration testing
 - **Utility tests** with edge case coverage
@@ -269,6 +283,27 @@ Coverage reports are generated in multiple formats:
 - HTML: `coverage/lcov-report/index.html`
 - Cobertura XML: `coverage/cobertura-coverage.xml`
 - LCOV: `coverage/lcov.info`
+
+## Monitoring & Observability
+
+### Prometheus Metrics
+When configured, Amber exposes comprehensive metrics:
+- **Endpoint**: `http://localhost:5150/metrics`
+- **Health Check**: `http://localhost:5150/health`
+- **Metrics Include**: Command usage, song statistics, API latency, queue lengths
+
+### Sentry Integration
+Production-ready error tracking with:
+- **100% Transaction Capture**: All commands tracked for performance
+- **Performance Profiling**: Detailed performance analysis
+- **Error Context**: Rich error context with breadcrumbs
+- **Privacy Compliant**: IP addresses automatically filtered
+
+### ELK Stack Logging (Kubernetes Only)
+Enterprise logging capabilities via Kubernetes deployment:
+- **Filebeat Sidecar**: Automatic log shipping to ELK stack in K8s deployments
+- **Structured Logs**: Enhanced log formatting for enterprise environments
+- **Rich Metadata**: Service info, timestamps, and correlation IDs via Filebeat
 
 ## Troubleshooting
 

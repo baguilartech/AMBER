@@ -300,11 +300,12 @@ describe('Metrics', () => {
       // Verify all metrics objects are defined
       expect(discordMetrics).toBeDefined();
       expect(discordMetrics.commandsTotal).toBeDefined();
-      expect(discordMetrics.messagesTotal).toBeDefined();
+      expect(discordMetrics.messagesReceived).toBeDefined();
+      expect(discordMetrics.messagesSent).toBeDefined();
       expect(discordMetrics.songsPlayed).toBeDefined();
       expect(discordMetrics.errors).toBeDefined();
       expect(discordMetrics.guildsTotal).toBeDefined();
-      expect(discordMetrics.membersTotal).toBeDefined();
+      expect(discordMetrics.usersTotal).toBeDefined();
       expect(discordMetrics.activeConnections).toBeDefined();
       expect(discordMetrics.queueLength).toBeDefined();
       expect(discordMetrics.commandDuration).toBeDefined();
@@ -312,6 +313,93 @@ describe('Metrics', () => {
       expect(discordMetrics.songLoadDuration).toBeDefined();
       expect(botStatus).toBeDefined();
       expect(botUptime).toBeDefined();
+    });
+  });
+
+  describe('Helper Functions', () => {
+    it('should track message received', async () => {
+      const { trackMessageReceived, discordMetrics } = await import('../../src/utils/metrics');
+      
+      const incSpy = jest.spyOn(discordMetrics.messagesReceived, 'inc');
+      
+      trackMessageReceived('guild-123', 'embed');
+      
+      expect(incSpy).toHaveBeenCalledWith({ guild_id: 'guild-123', type: 'embed' });
+      incSpy.mockRestore();
+    });
+
+    it('should track message received with default type', async () => {
+      const { trackMessageReceived, discordMetrics } = await import('../../src/utils/metrics');
+      
+      const incSpy = jest.spyOn(discordMetrics.messagesReceived, 'inc');
+      
+      trackMessageReceived('guild-123');
+      
+      expect(incSpy).toHaveBeenCalledWith({ guild_id: 'guild-123', type: 'text' });
+      incSpy.mockRestore();
+    });
+
+    it('should track message sent', async () => {
+      const { trackMessageSent, discordMetrics } = await import('../../src/utils/metrics');
+      
+      const incSpy = jest.spyOn(discordMetrics.messagesSent, 'inc');
+      
+      trackMessageSent('guild-456', 'embed');
+      
+      expect(incSpy).toHaveBeenCalledWith({ guild_id: 'guild-456', type: 'embed' });
+      incSpy.mockRestore();
+    });
+
+    it('should track message sent with default type', async () => {
+      const { trackMessageSent, discordMetrics } = await import('../../src/utils/metrics');
+      
+      const incSpy = jest.spyOn(discordMetrics.messagesSent, 'inc');
+      
+      trackMessageSent('guild-456');
+      
+      expect(incSpy).toHaveBeenCalledWith({ guild_id: 'guild-456', type: 'text' });
+      incSpy.mockRestore();
+    });
+
+    it('should track Discord API request success', async () => {
+      const { trackDiscordApiRequest, discordMetrics } = await import('../../src/utils/metrics');
+      
+      const observeSpy = jest.spyOn(discordMetrics.discordApiRequestDuration, 'observe');
+      const incSpy = jest.spyOn(discordMetrics.discordApiErrors, 'inc');
+      
+      trackDiscordApiRequest('/channels/123/messages', 'POST', 0.25, 200);
+      
+      expect(observeSpy).toHaveBeenCalledWith({ endpoint: '/channels/123/messages', method: 'POST' }, 0.25);
+      expect(incSpy).not.toHaveBeenCalled(); // No error for 200 status
+      
+      observeSpy.mockRestore();
+      incSpy.mockRestore();
+    });
+
+    it('should track Discord API request error', async () => {
+      const { trackDiscordApiRequest, discordMetrics } = await import('../../src/utils/metrics');
+      
+      const observeSpy = jest.spyOn(discordMetrics.discordApiRequestDuration, 'observe');
+      const incSpy = jest.spyOn(discordMetrics.discordApiErrors, 'inc');
+      
+      trackDiscordApiRequest('/channels/123/messages', 'POST', 1.5, 429);
+      
+      expect(observeSpy).toHaveBeenCalledWith({ endpoint: '/channels/123/messages', method: 'POST' }, 1.5);
+      expect(incSpy).toHaveBeenCalledWith({ status_code: '429', endpoint: '/channels/123/messages' });
+      
+      observeSpy.mockRestore();
+      incSpy.mockRestore();
+    });
+
+    it('should update rate limit status', async () => {
+      const { updateRateLimitStatus, discordMetrics } = await import('../../src/utils/metrics');
+      
+      const setSpy = jest.spyOn(discordMetrics.discordApiRateLimit, 'set');
+      
+      updateRateLimitStatus(85.5);
+      
+      expect(setSpy).toHaveBeenCalledWith(85.5);
+      setSpy.mockRestore();
     });
   });
 });

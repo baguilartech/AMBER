@@ -2,9 +2,15 @@
 jest.mock('@sentry/node', () => ({
   init: jest.fn(),
   captureException: jest.fn(),
+  captureMessage: jest.fn(),
   setContext: jest.fn(),
   setUser: jest.fn(),
-  addBreadcrumb: jest.fn()
+  addBreadcrumb: jest.fn(),
+  startSpan: jest.fn(),
+  httpIntegration: jest.fn(() => 'http-integration'),
+  expressIntegration: jest.fn(() => 'express-integration'),
+  nativeNodeFetchIntegration: jest.fn(() => 'fetch-integration'),
+  consoleIntegration: jest.fn(() => 'console-integration')
 }));
 
 // Mock fetch for LogShipper tests
@@ -123,7 +129,7 @@ describe('Monitoring Utils', () => {
       const json = collector.getMetricsJSON();
       
       expect(json).toHaveProperty('timestamp');
-      expect(json).toHaveProperty('service', 'amber-discord-bot');
+      expect(json).toHaveProperty('service_name', 'amber-discord-bot');
       expect(json).toHaveProperty('version', '1.2.3');
       expect(json).toHaveProperty('metrics');
       expect(json.metrics['command_test_total']).toBe(1);
@@ -132,7 +138,7 @@ describe('Monitoring Utils', () => {
 
     it('should use default version when npm_package_version is not set', () => {
       const json = collector.getMetricsJSON();
-      expect(json.version).toBe('1.1.3');
+      expect(json.version).toBe('1.1.4');
     });
   });
 
@@ -177,7 +183,7 @@ describe('Monitoring Utils', () => {
 
       const health = HealthCheck.getHealthStatus();
       
-      expect(health.version).toBe('1.1.3');
+      expect(health.version).toBe('1.1.4');
       expect(health.environment).toBe('development');
     });
 
@@ -276,6 +282,58 @@ describe('Monitoring Utils', () => {
       expect(healthNoConfig.services.youtube).toBe('available');
     });
 
+    it('should handle Spotify service errors', () => {
+      // Mock individual property access to throw errors
+      const originalSpotifyId = process.env.SPOTIFY_CLIENT_ID;
+      const originalSpotifySecret = process.env.SPOTIFY_CLIENT_SECRET;
+      
+      // Create a getter that throws an error
+      Object.defineProperty(process.env, 'SPOTIFY_CLIENT_ID', {
+        get() {
+          throw new Error('Environment access error');
+        },
+        configurable: true
+      });
+
+      const health = HealthCheck.getHealthStatus();
+      expect(health.services.spotify).toBe('error');
+
+      // Restore original values
+      Object.defineProperty(process.env, 'SPOTIFY_CLIENT_ID', {
+        value: originalSpotifyId,
+        configurable: true,
+        writable: true
+      });
+      Object.defineProperty(process.env, 'SPOTIFY_CLIENT_SECRET', {
+        value: originalSpotifySecret,
+        configurable: true,
+        writable: true
+      });
+    });
+
+    it('should handle SoundCloud service errors', () => {
+      // Mock individual property access to throw errors
+      const originalSoundcloudId = process.env.SOUNDCLOUD_CLIENT_ID;
+      
+      // Create a getter that throws an error
+      Object.defineProperty(process.env, 'SOUNDCLOUD_CLIENT_ID', {
+        get() {
+          throw new Error('Environment access error');
+        },
+        configurable: true
+      });
+
+      const health = HealthCheck.getHealthStatus();
+      expect(health.services.soundcloud).toBe('error');
+
+      // Restore original value
+      Object.defineProperty(process.env, 'SOUNDCLOUD_CLIENT_ID', {
+        value: originalSoundcloudId,
+        configurable: true,
+        writable: true
+      });
+    });
+
 
   });
 
@@ -291,8 +349,12 @@ describe('Monitoring Utils', () => {
         dsn: 'https://test@sentry.io/123',
         environment: 'test',
         tracesSampleRate: 1.0,
+        profilesSampleRate: 1.0,
+        sendDefaultPii: true,
         release: '1.0.0',
-        beforeSend: expect.any(Function)
+        integrations: expect.any(Array),
+        beforeSend: expect.any(Function),
+        beforeSendTransaction: expect.any(Function)
       });
     });
 
@@ -400,6 +462,488 @@ describe('Monitoring Utils', () => {
         timestamp: expect.any(Number)
       });
     });
+
+    it('should filter sensitive data in beforeSendTransaction hook', () => {
+      process.env.SENTRY_DSN = 'https://test@sentry.io/123';
+      ErrorTracking.init();
+
+      const initCall = (Sentry.init as jest.Mock).mock.calls[0][0];
+      const beforeSendTransaction = initCall.beforeSendTransaction;
+
+      const transaction = {
+        contexts: {
+          trace: {
+            data: {
+              'http.request.header.authorization': 'Bearer secret-token',
+              'http.request.header.cookie': 'session=abc123',
+              'http.request.header.user-agent': 'Mozilla/5.0'
+            }
+          }
+        }
+      };
+
+      const result = beforeSendTransaction(transaction);
+      expect(result.contexts.trace.data['http.request.header.authorization']).toBe('[Filtered]');
+      expect(result.contexts.trace.data['http.request.header.cookie']).toBe('[Filtered]');
+      expect(result.contexts.trace.data['http.request.header.user-agent']).toBe('Mozilla/5.0');
+    });
+
+    it('should handle transactions without trace context in beforeSendTransaction hook', () => {
+      process.env.SENTRY_DSN = 'https://test@sentry.io/123';
+      ErrorTracking.init();
+
+      const initCall = (Sentry.init as jest.Mock).mock.calls[0][0];
+      const beforeSendTransaction = initCall.beforeSendTransaction;
+
+      const transaction = { name: 'test transaction' };
+      const result = beforeSendTransaction(transaction);
+      expect(result).toEqual(transaction);
+    });
+
+    it('should initialize with all available integrations', () => {
+      process.env.SENTRY_DSN = 'https://test@sentry.io/456';
+      process.env.SENTRY_ENVIRONMENT = 'test-integrations';
+      
+      ErrorTracking.init();
+
+      const initCall = (Sentry.init as jest.Mock).mock.calls[0][0];
+      expect(initCall.integrations).toEqual(expect.arrayContaining([
+        'http-integration',
+        'express-integration', 
+        'fetch-integration',
+        'console-integration'
+      ]));
+    });
+
+    it('should initialize with only available integrations when some are missing', () => {
+      process.env.SENTRY_DSN = 'https://test@sentry.io/789';
+      
+      // Mock scenario where some integrations are not available
+      const originalSentry = jest.requireMock('@sentry/node');
+      const mockSentryWithMissingIntegrations = {
+        ...originalSentry,
+        httpIntegration: undefined, // Make this undefined
+        expressIntegration: jest.fn(() => 'express-integration'),
+        nativeNodeFetchIntegration: undefined, // Make this undefined  
+        consoleIntegration: jest.fn(() => 'console-integration'),
+        init: jest.fn()
+      };
+      
+      // Temporarily replace the mocked Sentry module
+      jest.doMock('@sentry/node', () => mockSentryWithMissingIntegrations);
+      
+      // Re-import the module to get the updated mock
+      jest.resetModules();
+      const { ErrorTracking } = require('../../src/utils/monitoring');
+      
+      ErrorTracking.init();
+
+      const initCall = mockSentryWithMissingIntegrations.init.mock.calls[0][0];
+      expect(initCall.integrations).toEqual(expect.arrayContaining([
+        'express-integration',
+        'console-integration'
+      ]));
+      expect(initCall.integrations).not.toEqual(expect.arrayContaining([
+        'http-integration',
+        'fetch-integration'
+      ]));
+      
+      // Restore original mock
+      jest.doMock('@sentry/node', () => originalSentry);
+      jest.resetModules();
+    });
+
+    it('should initialize with no optional integrations when none are available', () => {
+      process.env.SENTRY_DSN = 'https://test@sentry.io/999';
+      
+      // Mock scenario where no optional integrations are available
+      const originalSentry = jest.requireMock('@sentry/node');
+      const mockSentryWithNoIntegrations = {
+        ...originalSentry,
+        httpIntegration: undefined,
+        expressIntegration: undefined, 
+        nativeNodeFetchIntegration: undefined,
+        consoleIntegration: undefined,
+        init: jest.fn()
+      };
+      
+      // Temporarily replace the mocked Sentry module
+      jest.doMock('@sentry/node', () => mockSentryWithNoIntegrations);
+      
+      // Re-import the module to get the updated mock
+      jest.resetModules();
+      const { ErrorTracking } = require('../../src/utils/monitoring');
+      
+      ErrorTracking.init();
+
+      const initCall = mockSentryWithNoIntegrations.init.mock.calls[0][0];
+      // Should only contain the nodeProfilingIntegration (which is always present)
+      expect(initCall.integrations).toHaveLength(1);
+      
+      // Restore original mock
+      jest.doMock('@sentry/node', () => originalSentry);
+      jest.resetModules();
+    });
+
+    it('should execute startSpan with custom tracing', () => {
+      const mockCallback = jest.fn().mockReturnValue('test-result');
+      (Sentry.startSpan as jest.Mock).mockImplementation((_, callback) => callback());
+
+      const result = ErrorTracking.startSpan('test-span', 'test-operation', mockCallback);
+
+      expect(Sentry.startSpan).toHaveBeenCalledWith({
+        name: 'test-span',
+        op: 'test-operation',
+        attributes: {
+          service: 'discord-bot'
+        }
+      }, expect.any(Function));
+      expect(result).toBe('test-result');
+    });
+
+    it('should execute traceCommand with Discord command tracing', () => {
+      const mockCallback = jest.fn().mockReturnValue('command-result');
+      (Sentry.startSpan as jest.Mock).mockImplementation((_, callback) => callback());
+
+      const result = ErrorTracking.traceCommand('play', 'guild123', 'user456', mockCallback);
+
+      expect(Sentry.startSpan).toHaveBeenCalledWith({
+        name: 'Discord Command: play',
+        op: 'discord.command',
+        forceTransaction: true,
+        attributes: {
+          'discord.command': 'play',
+          'discord.guild_id': 'guild123',
+          'discord.user_id': 'user456',
+          service: 'discord-bot'
+        }
+      }, expect.any(Function));
+      expect(result).toBe('command-result');
+    });
+
+    it('should execute traceMusicOperation with music tracing', () => {
+      const mockCallback = jest.fn().mockReturnValue('music-result');
+      (Sentry.startSpan as jest.Mock).mockImplementation((_, callback) => callback());
+
+      const result = ErrorTracking.traceMusicOperation('play', 'youtube', mockCallback, 'test-track');
+
+      expect(Sentry.startSpan).toHaveBeenCalledWith({
+        name: 'Music: play',
+        op: 'music.operation',
+        forceTransaction: true,
+        attributes: {
+          'music.operation': 'play',
+          'music.service': 'youtube',
+          'music.track': 'test-track',
+          service: 'discord-bot'
+        }
+      }, expect.any(Function));
+      expect(result).toBe('music-result');
+    });
+
+    it('should execute traceMusicOperation without track name', () => {
+      const mockCallback = jest.fn().mockReturnValue('music-result');
+      (Sentry.startSpan as jest.Mock).mockImplementation((_, callback) => callback());
+
+      const result = ErrorTracking.traceMusicOperation('skip', 'spotify', mockCallback);
+
+      expect(Sentry.startSpan).toHaveBeenCalledWith({
+        name: 'Music: skip',
+        op: 'music.operation',
+        forceTransaction: true,
+        attributes: {
+          'music.operation': 'skip',
+          'music.service': 'spotify',
+          'music.track': 'unknown',
+          service: 'discord-bot'
+        }
+      }, expect.any(Function));
+      expect(result).toBe('music-result');
+    });
+
+    it('should execute traceApiCall with API call tracing', () => {
+      const mockCallback = jest.fn().mockReturnValue('api-result');
+      (Sentry.startSpan as jest.Mock).mockImplementation((_, callback) => callback());
+
+      const result = ErrorTracking.traceApiCall('spotify', '/api/tracks', mockCallback);
+
+      expect(Sentry.startSpan).toHaveBeenCalledWith({
+        name: 'API Call: spotify',
+        op: 'http.client',
+        forceTransaction: true,
+        attributes: {
+          'api.service': 'spotify',
+          'api.endpoint': '/api/tracks',
+          service: 'discord-bot'
+        }
+      }, expect.any(Function));
+      expect(result).toBe('api-result');
+    });
+
+    it('should execute withProfiling with profiling tracing', () => {
+      const mockCallback = jest.fn().mockReturnValue('profiling-result');
+      (Sentry.startSpan as jest.Mock).mockImplementation((_, innerCallback) => innerCallback());
+
+      const result = ErrorTracking.withProfiling('cpu-intensive-task', mockCallback);
+
+      expect(Sentry.startSpan).toHaveBeenCalledWith({
+        name: 'cpu-intensive-task',
+        op: 'function',
+        attributes: {
+          'profiling.enabled': true,
+          service: 'discord-bot'
+        }
+      }, expect.any(Function));
+      expect(result).toBe('profiling-result');
+    });
+
+    it('should handle errors in traceCommand and log debug', () => {
+      const originalLogLevel = process.env.LOG_LEVEL;
+      process.env.LOG_LEVEL = 'debug';
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      
+      const mockCallback = jest.fn().mockImplementation(() => {
+        throw new Error('Test command error');
+      });
+      (Sentry.startSpan as jest.Mock).mockImplementation((_, callback) => callback());
+
+      expect(() => {
+        ErrorTracking.traceCommand('play', 'guild123', 'user456', mockCallback);
+      }).toThrow('Test command error');
+
+      expect(consoleSpy).toHaveBeenCalledWith('[SENTRY] Command TRANSACTION error: play, Error: Test command error');
+      
+      consoleSpy.mockRestore();
+      process.env.LOG_LEVEL = originalLogLevel;
+    });
+
+    it('should handle errors in traceMusicOperation and log debug', () => {
+      const originalLogLevel = process.env.LOG_LEVEL;
+      process.env.LOG_LEVEL = 'debug';
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      
+      const mockCallback = jest.fn().mockImplementation(() => {
+        throw new Error('Test music error');
+      });
+      (Sentry.startSpan as jest.Mock).mockImplementation((_, callback) => callback());
+
+      expect(() => {
+        ErrorTracking.traceMusicOperation('play', 'youtube', mockCallback, 'test-track');
+      }).toThrow('Test music error');
+
+      expect(consoleSpy).toHaveBeenCalledWith('[SENTRY] Music TRANSACTION error: play, Error: Test music error');
+      
+      consoleSpy.mockRestore();
+      process.env.LOG_LEVEL = originalLogLevel;
+    });
+
+    it('should handle errors in traceApiCall and log debug', () => {
+      const originalLogLevel = process.env.LOG_LEVEL;
+      process.env.LOG_LEVEL = 'debug';
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      
+      const mockCallback = jest.fn().mockImplementation(() => {
+        throw new Error('Test API error');
+      });
+      (Sentry.startSpan as jest.Mock).mockImplementation((_, callback) => callback());
+
+      expect(() => {
+        ErrorTracking.traceApiCall('spotify', '/api/tracks', mockCallback);
+      }).toThrow('Test API error');
+
+      expect(consoleSpy).toHaveBeenCalledWith('[SENTRY] API TRANSACTION error: spotify, Error: Test API error');
+      
+      consoleSpy.mockRestore();
+      process.env.LOG_LEVEL = originalLogLevel;
+    });
+
+    it('should log debug messages when debug mode is enabled', () => {
+      const originalLogLevel = process.env.LOG_LEVEL;
+      process.env.LOG_LEVEL = 'debug';
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      
+      const mockCallback = jest.fn().mockReturnValue('result');
+      (Sentry.startSpan as jest.Mock).mockImplementation((_, callback) => callback());
+
+      ErrorTracking.traceCommand('play', 'guild123', 'user456', mockCallback);
+
+      expect(consoleSpy).toHaveBeenCalledWith('[SENTRY] Creating TRANSACTION for command: play in guild guild123 by user user456');
+      
+      consoleSpy.mockRestore();
+      process.env.LOG_LEVEL = originalLogLevel;
+    });
+  });
+
+  describe('SentryCapture', () => {
+    it('should capture info with data and log debug', () => {
+      const { SentryCapture } = require('../../src/utils/monitoring');
+      const originalLogLevel = process.env.LOG_LEVEL;
+      process.env.LOG_LEVEL = 'debug';
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const setContextSpy = jest.spyOn(Sentry, 'setContext');
+      (Sentry.startSpan as jest.Mock).mockImplementation((_, callback) => callback());
+
+      SentryCapture.captureInfo('Test info message', { key: 'value' });
+
+      expect(consoleSpy).toHaveBeenCalledWith('[SENTRY] Creating TRANSACTION for info: Test info message');
+      expect(setContextSpy).toHaveBeenCalledWith('operation_data', { key: 'value' });
+      
+      consoleSpy.mockRestore();
+      setContextSpy.mockRestore();
+      process.env.LOG_LEVEL = originalLogLevel;
+    });
+
+    it('should capture info without data', () => {
+      const { SentryCapture } = require('../../src/utils/monitoring');
+      const setContextSpy = jest.spyOn(Sentry, 'setContext');
+      (Sentry.startSpan as jest.Mock).mockImplementation((_, callback) => callback());
+
+      SentryCapture.captureInfo('Test info without data');
+
+      expect(setContextSpy).not.toHaveBeenCalled();
+      
+      setContextSpy.mockRestore();
+    });
+
+    it('should capture operation with data and log debug', () => {
+      const { SentryCapture } = require('../../src/utils/monitoring');
+      const originalLogLevel = process.env.LOG_LEVEL;
+      process.env.LOG_LEVEL = 'debug';
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const setContextSpy = jest.spyOn(Sentry, 'setContext');
+      (Sentry.startSpan as jest.Mock).mockImplementation((_, callback) => callback());
+
+      SentryCapture.captureOperation('test-operation', 'discord-service', { key: 'value' });
+
+      expect(consoleSpy).toHaveBeenCalledWith('[SENTRY] Creating TRANSACTION for operation: test-operation (discord-service)');
+      expect(setContextSpy).toHaveBeenCalledWith('operation_info', expect.objectContaining({
+        operation: 'test-operation',
+        service: 'discord-service',
+        key: 'value'
+      }));
+      
+      consoleSpy.mockRestore();
+      setContextSpy.mockRestore();
+      process.env.LOG_LEVEL = originalLogLevel;
+    });
+
+    it('should capture operation without data', () => {
+      const { SentryCapture } = require('../../src/utils/monitoring');
+      const setContextSpy = jest.spyOn(Sentry, 'setContext');
+      (Sentry.startSpan as jest.Mock).mockImplementation((_, callback) => callback());
+
+      SentryCapture.captureOperation('simple-operation', 'test-service');
+
+      expect(setContextSpy).toHaveBeenCalledWith('operation_info', expect.objectContaining({
+        operation: 'simple-operation',
+        service: 'test-service'
+      }));
+      
+      setContextSpy.mockRestore();
+    });
+  });
+
+  describe('SentryLogger', () => {
+    it('should handle warn method with context', () => {
+      const { SentryLogger } = require('../../src/utils/monitoring');
+      const loggerSpy = jest.spyOn(require('../../src/utils/logger').logger, 'warn');
+      const captureMessageSpy = jest.spyOn(Sentry, 'captureMessage');
+      const setContextSpy = jest.spyOn(Sentry, 'setContext');
+      
+      SentryLogger.warn('Test warning', { contextKey: 'contextValue' });
+      
+      expect(loggerSpy).toHaveBeenCalledWith('Test warning');
+      expect(captureMessageSpy).toHaveBeenCalledWith('Warning: Test warning', 'warning');
+      expect(setContextSpy).toHaveBeenCalledWith('warning_context', { contextKey: 'contextValue' });
+      
+      loggerSpy.mockRestore();
+      captureMessageSpy.mockRestore();
+      setContextSpy.mockRestore();
+    });
+
+    it('should handle warn method without context', () => {
+      const { SentryLogger } = require('../../src/utils/monitoring');
+      const loggerSpy = jest.spyOn(require('../../src/utils/logger').logger, 'warn');
+      const captureMessageSpy = jest.spyOn(Sentry, 'captureMessage');
+      const setContextSpy = jest.spyOn(Sentry, 'setContext');
+      
+      SentryLogger.warn('Test warning without context');
+      
+      expect(loggerSpy).toHaveBeenCalledWith('Test warning without context');
+      expect(captureMessageSpy).toHaveBeenCalledWith('Warning: Test warning without context', 'warning');
+      expect(setContextSpy).not.toHaveBeenCalled();
+      
+      loggerSpy.mockRestore();
+      captureMessageSpy.mockRestore();
+      setContextSpy.mockRestore();
+    });
+
+    it('should handle error method with error object and context', () => {
+      const { SentryLogger } = require('../../src/utils/monitoring');
+      const loggerSpy = jest.spyOn(require('../../src/utils/logger').logger, 'error');
+      const captureExceptionSpy = jest.spyOn(require('../../src/utils/monitoring').ErrorTracking, 'captureException');
+      
+      const testError = new Error('Test error');
+      const context = { userId: '123', action: 'test' };
+      
+      SentryLogger.error('Something went wrong', testError, context);
+      
+      expect(loggerSpy).toHaveBeenCalledWith('Something went wrong', testError);
+      expect(captureExceptionSpy).toHaveBeenCalledWith(testError, {
+        errorType: 'operational_error',
+        message: 'Something went wrong',
+        ...context
+      });
+      
+      loggerSpy.mockRestore();
+      captureExceptionSpy.mockRestore();
+    });
+
+    it('should handle error method without error object', () => {
+      const { SentryLogger } = require('../../src/utils/monitoring');
+      const loggerSpy = jest.spyOn(require('../../src/utils/logger').logger, 'error');
+      const captureMessageSpy = jest.spyOn(Sentry, 'captureMessage');
+      
+      SentryLogger.error('Operational issue occurred');
+      
+      expect(loggerSpy).toHaveBeenCalledWith('Operational issue occurred', undefined);
+      expect(captureMessageSpy).toHaveBeenCalledWith('Operational Issue: Operational issue occurred', 'error');
+      
+      loggerSpy.mockRestore();
+      captureMessageSpy.mockRestore();
+    });
+  });
+
+  describe('LogContext', () => {
+    it('should format operation with details', () => {
+      const { LogContext } = require('../../src/utils/monitoring');
+      const result = LogContext.operation('test-op', 'guild-123', 'extra details');
+      expect(result).toBe('test-op operation in guild guild-123: extra details');
+    });
+
+    it('should format operation without details', () => {
+      const { LogContext } = require('../../src/utils/monitoring');
+      const result = LogContext.operation('test-op', 'guild-123');
+      expect(result).toBe('test-op operation in guild guild-123');
+    });
+
+    it('should format service with details', () => {
+      const { LogContext } = require('../../src/utils/monitoring');
+      const result = LogContext.service('spotify', 'search', 'for song');
+      expect(result).toBe('spotify search: for song');
+    });
+
+    it('should format service without details', () => {
+      const { LogContext } = require('../../src/utils/monitoring');
+      const result = LogContext.service('spotify', 'search');
+      expect(result).toBe('spotify search');
+    });
+
+    it('should format command consistently', () => {
+      const { LogContext } = require('../../src/utils/monitoring');
+      const result = LogContext.command('play', 'guild-123', 'user-456');
+      expect(result).toBe('play command by user-456 in guild guild-123');
+    });
   });
 
   describe('LogShipper', () => {
@@ -431,15 +975,15 @@ describe('Monitoring Utils', () => {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: expect.stringContaining('"level":"error"')
+        body: expect.stringContaining('"loglevel":"error"')
       });
 
       const callArgs = (global.fetch as jest.Mock).mock.calls[0];
       const requestBody = JSON.parse(callArgs[1].body);
       expect(requestBody).toMatchObject({
-        level: 'error',
+        loglevel: 'error',
         message: 'Test error',
-        service: 'amber-discord-bot',
+        service_name: 'amber-discord-bot',
         version: '1.0.0',
         environment: 'test',
         userId: '123'
@@ -505,9 +1049,10 @@ describe('Monitoring Utils', () => {
       const callArgs = (global.fetch as jest.Mock).mock.calls[0];
       const requestBody = JSON.parse(callArgs[1].body);
       expect(requestBody).toMatchObject({
-        level: 'info',
+        loglevel: 'info',
         message: 'Event: command_executed',
-        event_type: 'command_executed',
+        event_type: 'application_event',
+        application_event: 'command_executed',
         command: 'play',
         guild: 'test-guild'
       });
@@ -528,7 +1073,7 @@ describe('Monitoring Utils', () => {
       const call = (global.fetch as jest.Mock).mock.calls[0];
       const body = JSON.parse(call[1].body);
       
-      expect(body.version).toBe('1.1.3');
+      expect(body.version).toBe('1.1.4');
       expect(body.environment).toBe('development');
     });
   });
@@ -674,7 +1219,7 @@ describe('Monitoring Utils', () => {
       metrics.incrementCommandUsage('minimal');
       const metricsJson = metrics.getMetricsJSON();
       expect(metricsJson.metrics['command_minimal_total']).toBe(1);
-      expect(metricsJson.version).toBe('1.1.3');
+      expect(metricsJson.version).toBe('1.1.4');
 
       // Get health status (should work)
       const health = HealthCheck.getHealthStatus();

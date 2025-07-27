@@ -1,5 +1,6 @@
 import { Collection, SlashCommandBuilder, SlashCommandOptionsOnlyBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { logger } from './logger';
+import { ErrorTracking } from './monitoring';
 
 export interface Command {
   data: SlashCommandBuilder | SlashCommandOptionsOnlyBuilder;
@@ -51,15 +52,33 @@ export class CommandRegistry {
     } catch (error) {
       logger.error(`Error executing command ${interaction.commandName}:`, error);
       
+      // Capture error in Sentry with interaction context
+      ErrorTracking.captureException(error as Error, {
+        command: interaction.commandName,
+        guildId: interaction.guildId,
+        userId: interaction.user.id,
+        username: interaction.user.username,
+        channelId: interaction.channelId,
+        interactionId: interaction.id,
+        interactionType: 'ChatInputCommand',
+        isDeferred: interaction.deferred,
+        isReplied: interaction.replied
+      });
+      
       const errorMessage = {
         content: 'There was an error executing this command!',
         flags: [1 << 6] // MessageFlags.Ephemeral
       };
 
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp(errorMessage);
-      } else {
-        await interaction.reply(errorMessage);
+      try {
+        if (interaction.replied || interaction.deferred) {
+          await interaction.followUp(errorMessage);
+        } else {
+          await interaction.reply(errorMessage);
+        }
+      } catch (replyError) {
+        // If we can't reply, just log it - don't send to Sentry again
+        logger.error(`Failed to send error message to user:`, replyError);
       }
     }
   }

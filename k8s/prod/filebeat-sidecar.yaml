@@ -1,0 +1,313 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: filebeat-config
+  namespace: amber
+  labels:
+    app: discord-bot
+    component: logging
+data:
+  filebeat.yml: |
+    filebeat.inputs:
+    # Application log files
+    - type: log
+      enabled: true
+      paths:
+        - /app/logs/*.log
+        - /app/logs/*.json
+      fields:
+        service_name: amber-discord-bot
+        log_source: kubernetes
+        environment: production
+        app: discord-bot
+        cluster_name: amber-cluster
+        namespace: amber
+      fields_under_root: true
+      json.keys_under_root: true
+      json.add_error_key: true
+      json.message_key: "message"
+      multiline.pattern: '^\d{4}-\d{2}-\d{2}'
+      multiline.negate: true
+      multiline.match: after
+      processors:
+      - add_kubernetes_metadata:
+          host: ${NODE_NAME}
+          default_indexers.enabled: false
+          default_matchers.enabled: false
+          indexers:
+          - container:
+          matchers:
+          - fields:
+              lookup_fields: ["container.id"]
+      - add_fields:
+          target: kubernetes_enriched
+          fields:
+            cluster: amber-cluster
+            data_stream: application-logs
+
+    # Container logs with enhanced Kubernetes metadata
+    - type: container
+      paths:
+        - /var/log/containers/amber-discord-bot-*.log
+        - /var/log/containers/*amber*.log
+      fields:
+        log_source: kubernetes
+        cluster_name: amber-cluster
+      fields_under_root: true
+      processors:
+      - add_kubernetes_metadata:
+          host: ${NODE_NAME}
+          default_indexers.enabled: false
+          default_matchers.enabled: false
+          indexers:
+          - container:
+          - pod_name:
+          - pod_uid:
+          matchers:
+          - logs_path:
+              logs_path: "/var/log/containers/"
+      - add_fields:
+          target: kubernetes_enriched
+          fields:
+            cluster: amber-cluster
+            data_stream: container-logs
+      - script:
+          lang: javascript
+          source: >
+            function process(event) {
+              var k8s = event.Get("kubernetes");
+              if (k8s && k8s.pod) {
+                // Extract deployment info
+                if (k8s.pod.name && k8s.pod.name.includes("discord-bot")) {
+                  event.Put("app_component", "discord-bot");
+                  event.Put("service_name", "amber-discord-bot");
+                }
+                
+                // Add resource usage context
+                if (k8s.node) {
+                  event.Put("node_name", k8s.node.name);
+                }
+                
+                // Parse container status
+                if (k8s.container) {
+                  event.Put("container_name", k8s.container.name);
+                  event.Put("container_image", k8s.container.image);
+                }
+                
+                // Add labels as structured data
+                if (k8s.labels) {
+                  event.Put("kubernetes_labels", k8s.labels);
+                }
+                
+                // Extract restart count and status
+                if (k8s.pod.uid) {
+                  event.Put("pod_uid", k8s.pod.uid);
+                }
+              }
+            }
+
+    # Kubernetes Events via audit logs and system components
+    - type: log
+      enabled: true
+      paths:
+        - /var/log/audit.log
+        - /var/log/kube-audit.log
+        - /var/log/pods/kube-system_*/*.log
+      fields:
+        log_source: kubernetes
+        event_type: kubernetes_events
+        cluster_name: amber-cluster
+        component: control-plane
+      fields_under_root: true
+      json.keys_under_root: true
+      json.add_error_key: true
+      json.message_key: "message"
+      multiline.pattern: '^\{'
+      multiline.negate: true
+      multiline.match: after
+      processors:
+      - add_kubernetes_metadata:
+          host: ${NODE_NAME}
+          default_indexers.enabled: false
+          default_matchers.enabled: false
+          matchers:
+          - logs_path:
+              logs_path: "/var/log/pods/"
+      - add_fields:
+          target: kubernetes_enriched
+          fields:
+            cluster: amber-cluster
+            data_stream: kubernetes-events
+      - script:
+          lang: javascript
+          source: >
+            function process(event) {
+              var message = event.Get("message");
+              if (message && typeof message === "string") {
+                // Parse Kubernetes events from audit logs
+                try {
+                  var parsed = JSON.parse(message);
+                  if (parsed.kind === "Event" || parsed.apiVersion) {
+                    event.Put("kubernetes_event_parsed", parsed);
+                    if (parsed.metadata && parsed.metadata.namespace) {
+                      event.Put("kubernetes_namespace", parsed.metadata.namespace);
+                    }
+                    if (parsed.reason) {
+                      event.Put("kubernetes_reason", parsed.reason);
+                    }
+                    if (parsed.type) {
+                      event.Put("kubernetes_event_type", parsed.type);
+                    }
+                  }
+                } catch (e) {
+                  // Not JSON, continue as regular log
+                }
+              }
+            }
+
+    output.logstash:
+      hosts: ["${ELK_HOST}:5044"]
+
+    setup.template.settings:
+      index.number_of_shards: 1
+      index.codec: best_compression
+
+    processors:
+    - add_host_metadata:
+        when.not.contains.tags: forwarded
+    - add_kubernetes_metadata:
+        host: ${NODE_NAME}
+        matchers:
+        - logs_path:
+            logs_path: "/var/log/containers/"
+
+    logging.level: info
+    logging.to_files: true
+    logging.files:
+      path: /usr/share/filebeat/logs
+      name: filebeat
+      keepfiles: 7
+      permissions: 0644
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: filebeat-amber
+  namespace: amber
+  labels:
+    app: discord-bot
+    component: logging
+spec:
+  selector:
+    matchLabels:
+      app: filebeat-amber
+  template:
+    metadata:
+      labels:
+        app: filebeat-amber
+        component: logging
+    spec:
+      serviceAccountName: filebeat
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: filebeat
+        image: docker.elastic.co/beats/filebeat:8.11.0
+        args: [
+          "-c", "/etc/filebeat.yml",
+          "-e",
+        ]
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: ELK_HOST
+          value: "${ELK_HOST}"
+        - name: ELK_PORT
+          value: "${ELK_PORT}"
+        securityContext:
+          runAsUser: 0
+        resources:
+          limits:
+            memory: 200Mi
+            cpu: 100m
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        volumeMounts:
+        - name: config
+          mountPath: /etc/filebeat.yml
+          readOnly: true
+          subPath: filebeat.yml
+        - name: data
+          mountPath: /usr/share/filebeat/data
+        - name: varlibdockercontainers
+          mountPath: /var/lib/docker/containers
+          readOnly: true
+        - name: varlog
+          mountPath: /var/log
+          readOnly: true
+        - name: varlibkubelet
+          mountPath: /var/lib/kubelet
+          readOnly: true
+        - name: etcmachineeid
+          mountPath: /etc/machine-id
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          defaultMode: 0640
+          name: filebeat-config
+      - name: varlibdockercontainers
+        hostPath:
+          path: /var/lib/docker/containers
+      - name: varlog
+        hostPath:
+          path: /var/log
+      - name: data
+        hostPath:
+          path: /var/lib/filebeat-data
+          type: DirectoryOrCreate
+      - name: varlibkubelet
+        hostPath:
+          path: /var/lib/kubelet
+      - name: etcmachineeid
+        hostPath:
+          path: /etc/machine-id
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: filebeat
+  namespace: amber
+  labels:
+    app: discord-bot
+    component: logging
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: filebeat-amber
+  labels:
+    app: discord-bot
+    component: logging
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - namespaces
+  - pods
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: filebeat-amber
+subjects:
+- kind: ServiceAccount
+  name: filebeat
+  namespace: amber
+roleRef:
+  kind: ClusterRole
+  name: filebeat-amber
+  apiGroup: rbac.authorization.k8s.io

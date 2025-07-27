@@ -5,7 +5,6 @@ import { logger } from './logger';
 config();
 
 export const botConfig: BotConfig = {
-  prefix: process.env.BOT_PREFIX || '!',
   maxQueueSize: parseInt(process.env.MAX_QUEUE_SIZE || '100'),
   defaultVolume: parseFloat(process.env.DEFAULT_VOLUME || '0.5'),
   autoLeaveTimeout: parseInt(process.env.AUTO_LEAVE_TIMEOUT || '300000'),

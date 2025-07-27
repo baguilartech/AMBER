@@ -1,5 +1,41 @@
 # GitLab CI/CD Pipeline for Amber Discord Bot
 # Simplified Auto-DevOps approach
+#
+# Required CI/CD Variables (set in GitLab Project Settings > CI/CD > Variables):
+# ===================================
+# 
+# APPLICATION SECRETS:
+# - DISCORD_TOKEN: Discord bot token
+# - DISCORD_CLIENT_ID: Discord application client ID
+# - SPOTIFY_CLIENT_ID: Spotify API client ID
+# - SPOTIFY_CLIENT_SECRET: Spotify API client secret  
+# - YOUTUBE_API_KEY: YouTube API key for music streaming
+# - SENTRY_DSN: Sentry error tracking DSN
+#
+# DOCKER HUB AUTHENTICATION (to avoid rate limits):
+# - DOCKERHUB_USERNAME: Docker Hub username
+# - DOCKERHUB_TOKEN: Docker Hub access token (not password!)
+#
+# MONITORING & OBSERVABILITY:
+# - ELK_HOST: ELK Stack host for log aggregation
+# - ELK_PORT: ELK Stack port (8080 for HTTP input, 5044 for Beats input)
+# - GRAFANA_HOST: Grafana host for dashboards
+# - GRAFANA_API_TOKEN: Grafana API token for annotations
+# - PROMETHEUS_PUSHGATEWAY: Prometheus Push Gateway URL
+# - SENTRY_AUTH_TOKEN: Sentry CLI authentication token
+# - SENTRY_ORG: Sentry organization name
+# - SENTRY_PROJECT: Sentry project name
+#
+# SONARQUBE (optional):
+# - SONAR_HOST_URL: SonarQube server URL  
+# - SONAR_TOKEN: SonarQube authentication token
+#
+# KUBERNETES DEPLOYMENT:
+# - KUBE_CONTEXT: Kubernetes context name (if using specific context)
+# - ENVIRONMENT_URL: Production environment URL for monitoring
+#
+# WIKI PUBLISHING (optional):
+# - WIKI_ACCESS_TOKEN: GitLab project access token with write_repository scope
 
 image: 
   name: sonarsource/sonar-scanner-cli:11
@@ -38,6 +74,7 @@ variables:
   CS_IMAGE: "${CI_REGISTRY_IMAGE}/discord-bot:${CI_COMMIT_SHA}"
   # Observability configuration
   PROMETHEUS_PUSHGATEWAY: "http://${GRAFANA_HOST}:9091"
+  # Docker Hub authentication (CI/CD variables: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN)
 
 # Cache template for Node.js projects
 .cache_template: &cache_template
@@ -49,6 +86,19 @@ variables:
       - node_modules/
       - .npm/
     policy: pull-push
+
+# Docker Hub authentication template
+.docker_hub_auth_template: &docker_hub_auth_template
+  before_script:
+    # Authenticate with Docker Hub to avoid rate limits
+    - |
+      if [ -n "$DOCKERHUB_USERNAME" ] && [ -n "$DOCKERHUB_TOKEN" ]; then
+        echo "Authenticating with Docker Hub..."
+        echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+      else
+        echo "Warning: Docker Hub credentials not set. You may hit rate limits."
+        echo "Set DOCKERHUB_USERNAME and DOCKERHUB_TOKEN in GitLab CI/CD variables to avoid this."
+      fi
 
 # Observability integration template
 .observability_template: &observability_template
@@ -65,17 +115,37 @@ variables:
           fi
         fi
         
-        # Create pipeline metrics JSON
+        # Create enhanced pipeline metrics JSON
+        JOB_DURATION=$(( $(date +%s) - ${JOB_START_TIME:-$(date +%s)} ))
         METRICS_JSON='{
           "timestamp": "'$(date -Iseconds)'",
           "event": "pipeline_job",
+          "log_source": "gitlab_ci",
+          "event_type": "pipeline_event",
+          "project_name": "'${CI_PROJECT_NAME}'",
+          "service_name": "amber-discord-bot",
           "job_name": "'${CI_JOB_NAME}'",
           "job_status": "'${CI_JOB_STATUS:-unknown}'",
-          "project": "'${CI_PROJECT_NAME}'",
-          "commit": "'${CI_COMMIT_SHA}'",
-          "branch": "'${CI_COMMIT_REF_NAME}'",
+          "commit_hash": "'${CI_COMMIT_SHA}'",
+          "commit_short_sha": "'${CI_COMMIT_SHORT_SHA}'",
+          "branch_name": "'${CI_COMMIT_REF_NAME}'",
           "pipeline_id": "'${CI_PIPELINE_ID}'",
-          "stage": "'${CI_JOB_STAGE}'"
+          "pipeline_url": "'${CI_PIPELINE_URL}'",
+          "job_id": "'${CI_JOB_ID}'",
+          "job_url": "'${CI_JOB_URL}'",
+          "stage": "'${CI_JOB_STAGE}'",
+          "runner_id": "'${CI_RUNNER_ID}'",
+          "runner_description": "'${CI_RUNNER_DESCRIPTION}'",
+          "triggered_by": "'${GITLAB_USER_NAME:-system}'",
+          "triggered_by_email": "'${GITLAB_USER_EMAIL:-system}'",
+          "merge_request_id": "'${CI_MERGE_REQUEST_IID:-null}'",
+          "merge_request_title": "'${CI_MERGE_REQUEST_TITLE:-null}'",
+          "environment": "'${CI_ENVIRONMENT_NAME:-development}'",
+          "tag": "'${CI_COMMIT_TAG:-null}'",
+          "duration_seconds": '$JOB_DURATION',
+          "gitlab_instance": "'${CI_SERVER_URL}'",
+          "gitlab_version": "'${CI_SERVER_VERSION}'",
+          "kubernetes_namespace": "amber"
         }'
         
         # Send metrics directly to Logstash
@@ -153,9 +223,13 @@ test:
   stage: test
   image: node:20
   services: []  # No external services needed
+  needs:
+    - build
+  dependencies:
+    - build
   before_script:
+    - export JOB_START_TIME=$(date +%s)
     - echo "Using artifacts from build job"
-    - npm ci --cache .npm --prefer-offline
   script:
     - npm run test:ci
   coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
@@ -183,6 +257,7 @@ lint:
   artifacts:
     reports:
       junit: reports/lint-results.xml
+      codequality: reports/gl-code-quality-report.json
     when: always
     expire_in: 1 week
   <<: *observability_template
@@ -215,7 +290,7 @@ sonar_scan:
         export SONAR_HOST_URL="http://${SONAR_HOST_URL}"
       fi
   script: 
-    - sonar-scanner -Dsonar.host.url="${SONAR_HOST_URL}"
+    - sonar-scanner -Dsonar.host.url="${SONAR_HOST_URL}" -Dsonar.projectKey="${SONAR_PROJECT_KEY}"
     # Send SonarQube scan event to ELK via Logstash (uses CI/CD variables: ELK_HOST, ELK_PORT)
     - |
       if [ -n "$ELK_HOST" ] && [ -n "$ELK_PORT" ]; then
@@ -228,14 +303,21 @@ sonar_scan:
           fi
         fi
         
-        # Create SonarQube metrics JSON
+        # Create enhanced SonarQube metrics JSON
         SONAR_METRICS_JSON='{
           "timestamp": "'$(date -Iseconds)'",
           "event": "sonarqube_scan",
-          "project": "'${CI_PROJECT_NAME}'",
-          "commit": "'${CI_COMMIT_SHA}'",
-          "branch": "'${CI_COMMIT_REF_NAME}'",
-          "sonar_host": "'${SONAR_HOST_URL}'"
+          "log_source": "gitlab_ci",
+          "event_type": "pipeline_event",
+          "project_name": "'${CI_PROJECT_NAME}'",
+          "service_name": "amber-discord-bot",
+          "commit_hash": "'${CI_COMMIT_SHA}'",
+          "branch_name": "'${CI_COMMIT_REF_NAME}'",
+          "sonar_host": "'${SONAR_HOST_URL}'",
+          "pipeline_id": "'${CI_PIPELINE_ID}'",
+          "job_id": "'${CI_JOB_ID}'",
+          "stage": "'${CI_JOB_STAGE}'",
+          "scan_tool": "sonarqube"
         }'
         
         # Send metrics directly to Logstash
@@ -277,17 +359,26 @@ build-container:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_DRIVER: overlay2
   before_script:
+    - export JOB_START_TIME=$(date +%s)
     - |
       # Wait for Docker daemon to be ready
       until docker info >/dev/null 2>&1; do
         echo "Waiting for Docker daemon..."
         sleep 1
       done
+    # Authenticate with Docker Hub to avoid rate limits
+    - |
+      if [ -n "$DOCKERHUB_USERNAME" ] && [ -n "$DOCKERHUB_TOKEN" ]; then
+        echo "Authenticating with Docker Hub..."
+        echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+      else
+        echo "Warning: Docker Hub credentials not set. You may hit rate limits."
+      fi
     - echo "Logging into GitLab Container Registry..."
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
   script:
     - echo "Building Discord bot container image..."
-    - docker build -t $CONTAINER_IMAGE:$CI_COMMIT_SHA -t $CONTAINER_IMAGE:latest .
+    - docker build --build-arg SENTRY_AUTH_TOKEN="$SENTRY_AUTH_TOKEN" --build-arg CA_SERVER_URL="$CA_SERVER_URL" -t $CONTAINER_IMAGE:$CI_COMMIT_SHA -t $CONTAINER_IMAGE:latest .
     - echo "Pushing container image to registry..."
     - docker push $CONTAINER_IMAGE:$CI_COMMIT_SHA
     - docker push $CONTAINER_IMAGE:latest
@@ -303,14 +394,26 @@ build-container:
           fi
         fi
         
-        # Create container build metrics JSON
+        # Get image size for enhanced metrics
+        IMAGE_SIZE=$(docker image inspect $CONTAINER_IMAGE:$CI_COMMIT_SHA --format='{{.Size}}' 2>/dev/null || echo 0)
+        
+        # Create enhanced container build metrics JSON
         BUILD_METRICS_JSON='{
           "timestamp": "'$(date -Iseconds)'",
           "event": "container_build",
-          "project": "'${CI_PROJECT_NAME}'",
-          "commit": "'${CI_COMMIT_SHA}'",
-          "branch": "'${CI_COMMIT_REF_NAME}'",
-          "image": "'${CONTAINER_IMAGE}:${CI_COMMIT_SHA}'"
+          "log_source": "gitlab_ci",
+          "event_type": "pipeline_event",
+          "project_name": "'${CI_PROJECT_NAME}'",
+          "service_name": "amber-discord-bot",
+          "commit_hash": "'${CI_COMMIT_SHA}'",
+          "branch_name": "'${CI_COMMIT_REF_NAME}'",
+          "container_image": "'${CONTAINER_IMAGE}:${CI_COMMIT_SHA}'",
+          "image_size_bytes": '$IMAGE_SIZE',
+          "registry": "'${CI_REGISTRY}'",
+          "pipeline_id": "'${CI_PIPELINE_ID}'",
+          "job_id": "'${CI_JOB_ID}'",
+          "stage": "'${CI_JOB_STAGE}'",
+          "dockerfile_path": "Dockerfile"
         }'
         
         # Send metrics directly to Logstash
@@ -349,7 +452,10 @@ secret_detection:
   variables:
     SECRET_DETECTION_EXCLUDED_PATHS: "node_modules,coverage,dist,reports"
 
-# Auto-DevOps will handle code_quality automatically
+# Disable Auto-DevOps code_quality (we'll use custom ESLint integration)
+code_quality:
+  rules:
+    - when: never
 
 # Release job for tagged versions
 # release:
@@ -395,6 +501,14 @@ release-container:
         echo "Waiting for Docker daemon..."
         sleep 1
       done
+    # Authenticate with Docker Hub to avoid rate limits
+    - |
+      if [ -n "$DOCKERHUB_USERNAME" ] && [ -n "$DOCKERHUB_TOKEN" ]; then
+        echo "Authenticating with Docker Hub..."
+        echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+      else
+        echo "Warning: Docker Hub credentials not set. You may hit rate limits."
+      fi
     - echo "Logging into GitLab Container Registry..."
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
   script:
@@ -402,7 +516,7 @@ release-container:
       if [ -n "$CI_COMMIT_TAG" ]; then
         VERSION=${CI_COMMIT_TAG#v}
         echo "Building release container for version $VERSION..."
-        docker build -t $CONTAINER_IMAGE:$VERSION -t $CONTAINER_IMAGE:latest .
+        docker build --build-arg SENTRY_AUTH_TOKEN="$SENTRY_AUTH_TOKEN" --build-arg CA_SERVER_URL="$CA_SERVER_URL" -t $CONTAINER_IMAGE:$VERSION -t $CONTAINER_IMAGE:latest .
         docker push $CONTAINER_IMAGE:$VERSION
         docker push $CONTAINER_IMAGE:latest
         echo "Released container images:"
@@ -480,6 +594,15 @@ production:
   rules:
     - when: never
 
+# Disable review apps since AMBER is a Discord bot, not a web app
+review:
+  rules:
+    - when: never
+
+stop_review:
+  rules:
+    - when: never
+
 browser_performance:
   before_script:
     - echo "${ENVIRONMENT_URL}" > environment_url.txt
@@ -514,24 +637,55 @@ deploy_production:
   stage: deploy
   image: alpine:latest
   before_script:
+    - export JOB_START_TIME=$(date +%s)
     - apk add --no-cache kubectl gettext bash  # install kubectl, envsubst and bash
+  variables:
+    # GitLab Agent context (following GitLab documentation)
+    # Format: path/to/agent/project:agent-name
+    # This will be auto-populated by GitLab if agent is configured
+    KUBE_CONTEXT: ${CI_PROJECT_PATH}:production
+    # Rollback behavior control
+    ROLLBACK_ON_FAILURE: "true"
   script:
     - echo "Deploying to production via GitLab Agent..."
     # Export environment variables for substitution
     - export DISCORD_TOKEN="$DISCORD_TOKEN"
+    - export DISCORD_CLIENT_ID="$DISCORD_CLIENT_ID"
     - export SPOTIFY_CLIENT_ID="$SPOTIFY_CLIENT_ID" 
     - export SPOTIFY_CLIENT_SECRET="$SPOTIFY_CLIENT_SECRET"
+    - export YOUTUBE_API_KEY="$YOUTUBE_API_KEY"
     - export SENTRY_DSN="$SENTRY_DSN"
     - export ELK_HOST="$ELK_HOST"
     - export ELK_PORT="$ELK_PORT"
     - export GRAFANA_HOST="$GRAFANA_HOST"
+    - export REGISTRY_URL="$REGISTRY_URL"
+    - export CI_REGISTRY_IMAGE="$CI_REGISTRY_IMAGE"
+    - export IMAGE_TAG="${CI_COMMIT_TAG:-latest}"
+    - export CI_JOB_TOKEN="$CI_JOB_TOKEN"
     # Create environment URL file for Auto-DevOps
     - echo "${ENVIRONMENT_URL}" > environment_url.txt
-    # Run deployment script
-    - cd k8s
+    # Store current deployment state for potential rollback
+    - kubectl get deployment amber-discord-bot -n amber -o yaml > /tmp/previous-deployment.yaml 2>/dev/null || echo "No previous deployment found"
+    # Run production deployment script with error handling
+    - cd k8s/prod
     - ls -la
-    - bash deploy.sh
-    - echo "Production deployment completed via GitLab Agent"
+    - |
+      if ! bash deploy.sh; then
+        echo "❌ Deployment failed!"
+        if [ "$ROLLBACK_ON_FAILURE" = "true" ]; then
+          echo "🔄 Initiating rollback..."
+          if [ -f /tmp/previous-deployment.yaml ] && [ -s /tmp/previous-deployment.yaml ]; then
+            echo "📦 Rolling back to previous deployment..."
+            kubectl apply -f /tmp/previous-deployment.yaml || echo "⚠️ Rollback failed - no previous state available"
+            kubectl rollout status deployment/amber-discord-bot -n amber --timeout=120s || echo "⚠️ Rollback status check failed"
+          else
+            echo "🗑️ No previous deployment found - cleaning up failed deployment..."
+            kubectl delete deployment amber-discord-bot -n amber 2>/dev/null || echo "No deployment to clean up"
+          fi
+        fi
+        exit 1
+      fi
+    - echo "✅ Production deployment completed via GitLab Agent"
   environment:
     name: production
     url: ${ENVIRONMENT_URL}  # AMBER is a Discord bot - URL points to cluster monitoring
@@ -544,6 +698,110 @@ deploy_production:
     - if: $CI_COMMIT_BRANCH == 'main'
   needs:
     - build-container
+  <<: *observability_template
+
+# Manual cleanup jobs for production environment
+cleanup_production:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    - export JOB_START_TIME=$(date +%s)
+    - apk add --no-cache kubectl gettext bash
+  variables:
+    KUBE_CONTEXT: ${CI_PROJECT_PATH}:production
+  script:
+    - echo "🗑️ Force cleaning up production deployment..."
+    # Configure kubectl for GitLab Agent (same as deploy_production)
+    - |
+      if [ -n "$KUBECONFIG" ]; then
+        echo "📄 Using KUBECONFIG: $KUBECONFIG"
+        kubectl config get-contexts || exit 1
+        if [ -n "$KUBE_CONTEXT" ]; then
+          echo "🎯 Setting context to: $KUBE_CONTEXT"
+          kubectl config use-context "$KUBE_CONTEXT" || exit 1
+        fi
+        # Test connection
+        kubectl cluster-info --request-timeout=10s || exit 1
+        echo "✅ Successfully connected to Kubernetes cluster"
+      else
+        echo "❌ Error: No KUBECONFIG provided"
+        exit 1
+      fi
+    - |
+      # Force delete deployment
+      kubectl delete deployment amber-discord-bot -n amber --force --grace-period=0 || echo "No deployment to delete"
+      
+      # Force delete all pods to ensure clean restart
+      kubectl delete pods --all -n amber --force --grace-period=0 || echo "No pods to delete"
+      
+      # Delete services
+      kubectl delete service amber-discord-bot amber-discord-bot-external -n amber || echo "No services to delete"
+      
+      # Delete configmaps
+      kubectl delete configmap amber-config amber-config-env -n amber || echo "No configmaps to delete"
+      
+      # Delete secrets
+      kubectl delete secret amber-secrets-env gitlab-registry -n amber || echo "No secrets to delete"
+      
+      # Clean up filebeat resources
+      kubectl delete daemonset filebeat-amber -n amber || echo "No filebeat daemonset to delete"
+      kubectl delete configmap filebeat-config -n amber || echo "No filebeat config to delete"
+      kubectl delete serviceaccount filebeat -n amber || echo "No filebeat serviceaccount to delete"
+      kubectl delete clusterrole filebeat-amber || echo "No filebeat clusterrole to delete"
+      kubectl delete clusterrolebinding filebeat-amber || echo "No filebeat clusterrolebinding to delete"
+      
+      echo "✅ Force cleanup completed"
+  environment:
+    name: production
+    action: stop
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'main'
+  <<: *observability_template
+
+# Rollback to previous version (manual)
+rollback_production:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    - export JOB_START_TIME=$(date +%s)
+    - apk add --no-cache kubectl gettext bash
+  variables:
+    KUBE_CONTEXT: ${CI_PROJECT_PATH}:production
+  script:
+    - echo "🔄 Rolling back production deployment..."
+    # Configure kubectl for GitLab Agent
+    - |
+      if [ -n "$KUBECONFIG" ]; then
+        echo "📄 Using KUBECONFIG: $KUBECONFIG"
+        kubectl config get-contexts || exit 1
+        if [ -n "$KUBE_CONTEXT" ]; then
+          echo "🎯 Setting context to: $KUBE_CONTEXT"
+          kubectl config use-context "$KUBE_CONTEXT" || exit 1
+        fi
+        # Test connection
+        kubectl cluster-info --request-timeout=10s || exit 1
+      else
+        echo "❌ Error: No KUBECONFIG provided"
+        exit 1
+      fi
+    - |
+      # Use kubectl rollout to rollback to previous revision
+      if kubectl rollout history deployment/amber-discord-bot -n amber; then
+        kubectl rollout undo deployment/amber-discord-bot -n amber
+        kubectl rollout status deployment/amber-discord-bot -n amber --timeout=300s
+        echo "✅ Rollback completed successfully"
+        kubectl get pods -n amber
+      else
+        echo "❌ No deployment history found for rollback"
+        exit 1
+      fi
+  environment:
+    name: production
+    url: ${ENVIRONMENT_URL}
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'main'
   <<: *observability_template
 
 

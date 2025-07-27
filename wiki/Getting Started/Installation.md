@@ -49,11 +49,17 @@ npm install
    SOUNDCLOUD_CLIENT_ID=your_soundcloud_client_id
    
    # Bot Configuration
-   BOT_PREFIX=!
    MAX_QUEUE_SIZE=100
    DEFAULT_VOLUME=0.5
    AUTO_LEAVE_TIMEOUT=300000
    LOG_LEVEL=info
+   
+   # Monitoring & Observability (Optional)
+   PROMETHEUS_PORT=5150
+   SENTRY_DSN=your_sentry_dsn_here
+   SENTRY_ENVIRONMENT=production
+   ELK_HOST=your_elk_host
+   ELK_PORT=8080
    ```
 
 ### 4. Build the Bot
@@ -83,6 +89,22 @@ docker build -t amber .
 docker run -d --env-file .env amber
 ```
 
+## Kubernetes Installation
+
+### Prerequisites
+- Kubernetes cluster (1.19+)
+- kubectl configured
+- Required environment variables set
+
+### Deploy to Kubernetes
+
+```bash
+cd k8s
+./deploy.sh
+```
+
+For detailed Kubernetes deployment instructions, see [Kubernetes Deployment Guide](Kubernetes).
+
 ## Creating a Discord Bot
 
 1. Go to the [Discord Developer Portal](https://discord.com/developers/applications)
@@ -108,11 +130,18 @@ docker run -d --env-file .env amber
 - Learn about available commands in [Commands Reference](WCommands)
 - Set up music service integrations for YouTube, Spotify, and SoundCloud
 
-## Performance Features
+## Performance & Monitoring Features
 
-Amber includes several performance optimizations:
+Amber includes several performance optimizations and monitoring capabilities:
 
+### Performance Optimizations
 - **Prebuffering System**: Automatically prepares next songs for instant playback
 - **Parallel Search**: Multiple search strategies run simultaneously for faster results
 - **Smart Caching**: LRU cache with automatic cleanup for optimal memory usage
 - **Queue Optimization**: 95% improvement in song transition times
+
+### Monitoring & Observability
+- **Prometheus Metrics**: Real-time performance metrics at `/metrics` endpoint
+- **Sentry Integration**: Automatic error tracking with 100% transaction capture
+- **ELK Stack Support**: Available via Filebeat sidecar in Kubernetes deployments
+- **Health Endpoints**: `/health` endpoint for container health checks

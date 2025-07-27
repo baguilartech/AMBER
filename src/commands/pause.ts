@@ -9,7 +9,7 @@ export class PauseCommand extends BaseMusicPlayerCommand {
       .setDescription('Pause the current song');
   }
 
-  async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+  protected async executeCommand(interaction: ChatInputCommandInteraction): Promise<void> {
     const guildId = this.getGuildId(interaction);
     await this.executeBooleanOperation(
       interaction,

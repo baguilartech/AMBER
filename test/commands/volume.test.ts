@@ -21,12 +21,21 @@ describe('VolumeCommand', () => {
     mockInteraction = {
       guildId: 'guild-123',
       user: {
+        id: 'test-user-id',
         username: 'testuser'
       },
       options: {
         getInteger: jest.fn()
       },
-      reply: jest.fn().mockResolvedValue(undefined)
+      reply: jest.fn().mockResolvedValue(undefined),
+      editReply: jest.fn().mockResolvedValue(undefined),
+      deferReply: jest.fn().mockImplementation(() => { 
+        mockInteraction.deferred = true;
+        return Promise.resolve();
+      }),
+      isRepliable: jest.fn().mockReturnValue(true),
+      replied: false,
+      deferred: false
     };
 
     volumeCommand = new VolumeCommand(mockMusicPlayer);
@@ -54,7 +63,7 @@ describe('VolumeCommand', () => {
       await volumeCommand.execute(mockInteraction);
 
       expect(mockMusicPlayer.setVolume).toHaveBeenCalledWith('guild-123', 0.75);
-      expect(mockInteraction.reply).toHaveBeenCalledWith({
+      expect(mockInteraction.editReply).toHaveBeenCalledWith({
         content: 'Volume set to 75%'
       });
     });
@@ -66,9 +75,8 @@ describe('VolumeCommand', () => {
       await volumeCommand.execute(mockInteraction);
 
       expect(mockMusicPlayer.setVolume).toHaveBeenCalledWith('guild-123', 0.5);
-      expect(mockInteraction.reply).toHaveBeenCalledWith({
-        content: 'Nothing is currently playing.',
-        flags: [1 << 6] // MessageFlags.Ephemeral
+      expect(mockInteraction.editReply).toHaveBeenCalledWith({
+        content: 'Nothing is currently playing.'
       });
     });
 
@@ -79,7 +87,7 @@ describe('VolumeCommand', () => {
       await volumeCommand.execute(mockInteraction);
 
       expect(mockMusicPlayer.setVolume).toHaveBeenCalledWith('guild-123', 1.5);
-      expect(mockInteraction.reply).toHaveBeenCalledWith({
+      expect(mockInteraction.editReply).toHaveBeenCalledWith({
         content: 'Volume set to 150%'
       });
     });
@@ -91,7 +99,7 @@ describe('VolumeCommand', () => {
       await volumeCommand.execute(mockInteraction);
 
       expect(mockMusicPlayer.setVolume).toHaveBeenCalledWith('guild-123', -0.1);
-      expect(mockInteraction.reply).toHaveBeenCalledWith({
+      expect(mockInteraction.editReply).toHaveBeenCalledWith({
         content: 'Volume set to -10%'
       });
     });

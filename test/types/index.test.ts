@@ -115,14 +115,12 @@ describe('Type Definitions', () => {
   describe('BotConfig interface', () => {
     it('should define a valid BotConfig object', () => {
       const config: BotConfig = {
-        prefix: '!',
         maxQueueSize: 100,
         defaultVolume: 0.5,
         autoLeaveTimeout: 300000,
         logLevel: 'info'
       };
 
-      expect(config.prefix).toBe('!');
       expect(config.maxQueueSize).toBe(100);
       expect(config.defaultVolume).toBe(0.5);
       expect(config.autoLeaveTimeout).toBe(300000);
@@ -131,7 +129,6 @@ describe('Type Definitions', () => {
 
     it('should support all log levels', () => {
       const errorConfig: BotConfig = {
-        prefix: '!',
         maxQueueSize: 100,
         defaultVolume: 0.5,
         autoLeaveTimeout: 300000,
@@ -139,7 +136,6 @@ describe('Type Definitions', () => {
       };
 
       const warnConfig: BotConfig = {
-        prefix: '!',
         maxQueueSize: 100,
         defaultVolume: 0.5,
         autoLeaveTimeout: 300000,
@@ -147,7 +143,6 @@ describe('Type Definitions', () => {
       };
 
       const debugConfig: BotConfig = {
-        prefix: '!',
         maxQueueSize: 100,
         defaultVolume: 0.5,
         autoLeaveTimeout: 300000,

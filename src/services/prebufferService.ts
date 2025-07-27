@@ -1,6 +1,7 @@
 import { Song } from '../types';
 import { ServiceFactory } from './serviceFactory';
 import { logger } from '../utils/logger';
+import { ErrorTracking, LogContext } from '../utils/monitoring';
 
 interface PrebufferedSong extends Song {
   youtubeUrl?: string;
@@ -11,54 +12,80 @@ interface PrebufferedSong extends Song {
 export class PrebufferService {
   private readonly prebufferCache: Map<string, PrebufferedSong> = new Map();
   private readonly maxCacheSize = 50; // Limit cache size to prevent memory issues
+  private lastPrebufferTime = 0;
+  private readonly prebufferCooldown = 1000; // Minimum 1 second between prebuffer operations
   
   /**
    * Prebuffer the next 1-2 songs in the queue while current song is playing
    */
   async prebufferNextSongs(songs: Song[], currentIndex: number, guildId: string): Promise<void> {
-    // Prebuffer next 2 songs for instant playback
-    const songsToBuffer = songs.slice(currentIndex + 1, currentIndex + 3);
-    
-    logger.info(`Prebuffering check: ${songsToBuffer.length} songs to consider from index ${currentIndex + 1} in guild ${guildId}`);
-    
-    for (const song of songsToBuffer) {
-      if (this.shouldPrebuffer(song)) {
-        logger.info(`Starting prebuffer for: ${song.title} by ${song.artist} (${song.platform})`);
-        this.prebufferSong(song, guildId);
-      } else {
-        logger.info(`Skipping prebuffer for: ${song.title} (${song.platform}) - not needed`);
+    return ErrorTracking.traceMusicOperation('prebuffer', 'background', async () => {
+      // Rate limit prebuffer operations to avoid impacting audio
+      const now = Date.now();
+      if (now - this.lastPrebufferTime < this.prebufferCooldown) {
+        logger.info(`Skipping prebuffer - cooldown active (${this.prebufferCooldown}ms)`);
+        return;
       }
-    }
+      this.lastPrebufferTime = now;
+      
+      // Prebuffer next 2 songs for instant playback
+      const songsToBuffer = songs.slice(currentIndex + 1, currentIndex + 3);
+      
+      logger.info(`Prebuffering check: ${songsToBuffer.length} songs to consider from index ${currentIndex + 1} in guild ${guildId}`);
+      
+      // Process songs with delays to minimize audio impact
+      for (let i = 0; i < songsToBuffer.length; i++) {
+        const song = songsToBuffer[i];
+        if (this.shouldPrebuffer(song)) {
+          logger.info(`Starting prebuffer for: ${song.title} by ${song.artist} (${song.platform})`);
+          // Add delay between each prebuffer operation
+          if (i > 0) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+          this.prebufferSong(song, guildId);
+        } else {
+          logger.info(`Skipping prebuffer for: ${song.title} (${song.platform}) - not needed`);
+        }
+      }
+    }, 'prebuffer-batch');
   }
 
   /**
    * Get YouTube URL for a song (either from cache or fetch it)
    */
   async getYouTubeUrl(song: Song, guildId: string): Promise<string> {
-    const cacheKey = this.getCacheKey(song);
-    const cached = this.prebufferCache.get(cacheKey);
-    
-    // Return cached URL if available
-    if (cached?.youtubeUrl) {
-      logger.info(`Using prebuffered URL for ${song.title} in guild ${guildId}`);
-      return cached.youtubeUrl;
-    }
-    
-    // If prebuffer is in progress, wait for it
-    if (cached?.prebufferPromise) {
-      logger.info(`Waiting for prebuffer completion for ${song.title} in guild ${guildId}`);
+    return ErrorTracking.traceMusicOperation('get-youtube-url', song.platform, async () => {
+      const cacheKey = this.getCacheKey(song);
+      const cached = this.prebufferCache.get(cacheKey);
+      
+      // Return cached URL if available
+      if (cached?.youtubeUrl) {
+        logger.info(LogContext.operation('prebuffer-cache-hit', guildId, `${song.title}`));
+        return cached.youtubeUrl;
+      }
+      
+      // If prebuffer is in progress, wait for it
+      if (cached?.prebufferPromise) {
+        logger.info(LogContext.operation('prebuffer-wait', guildId, `${song.title}`));
       try {
         const url = await cached.prebufferPromise;
         return url;
       } catch (error) {
         logger.error(`Prebuffer failed for ${song.title}, fetching fresh:`, error);
+        ErrorTracking.captureException(error as Error, {
+          errorType: 'prebuffer_failed',
+          songTitle: song.title,
+          songPlatform: song.platform,
+          guildId: guildId
+        });
         // Fall through to fresh fetch
       }
     }
     
-    // Fetch fresh URL
-    logger.info(`Fetching fresh YouTube URL for ${song.title} in guild ${guildId}`);
-    return await this.fetchYouTubeUrl(song);
+      // Fetch fresh URL
+      logger.info(`Fetching fresh YouTube URL for ${song.title} in guild ${guildId}`);
+      return await this.fetchYouTubeUrl(song);
+    }, song.title);
   }
 
   /**
@@ -91,6 +118,12 @@ export class PrebufferService {
         // Remove failed entry from cache
         this.prebufferCache.delete(cacheKey);
         logger.error(`Failed to prebuffer ${song.title}:`, error);
+        ErrorTracking.captureException(error, {
+          errorType: 'prebuffer_background_failed',
+          songTitle: song.title,
+          songPlatform: song.platform,
+          guildId: guildId
+        });
         throw error;
       });
 

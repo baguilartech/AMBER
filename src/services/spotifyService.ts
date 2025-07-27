@@ -6,6 +6,7 @@ import { URLValidator } from '../utils/urlValidator';
 import { joinArtistNames } from '../utils/formatters';
 import { BaseMusicService } from './baseMusicService';
 import { ServiceFactory } from './serviceFactory';
+import { ErrorTracking, LogContext } from '../utils/monitoring';
 
 export class SpotifyService extends BaseMusicService {
   protected platform = 'Spotify';
@@ -39,16 +40,17 @@ export class SpotifyService extends BaseMusicService {
   }
 
   async search(query: string): Promise<Song[]> {
-    try {
-      await this.ensureAccessToken();
-      
-      const results = await this.spotify.searchTracks(query, { limit: 5 });
-      const tracks = results.body.tracks?.items || [];
-      
-      if (tracks.length === 0) {
-        this.logNoResults(query);
-        return [];
-      }
+    return ErrorTracking.traceApiCall('spotify', 'search', async () => {
+      try {
+        await this.ensureAccessToken();
+        
+        const results = await this.spotify.searchTracks(query, { limit: 5 });
+        const tracks = results.body.tracks?.items || [];
+        
+        if (tracks.length === 0) {
+          this.logNoResults(query);
+          return [];
+        }
 
       const songs: Song[] = [];
       
@@ -66,15 +68,17 @@ export class SpotifyService extends BaseMusicService {
         }));
       }
 
-      this.logSearchResults(songs.length, query);
-      return songs;
-    } catch (error) {
-      return this.handleSearchError(error as Error);
-    }
+        this.logSearchResults(songs.length, query);
+        return songs;
+      } catch (error) {
+        return this.handleSearchError(error as Error);
+      }
+    });
   }
 
   async getStreamUrl(song: Song): Promise<string> {
-    try {
+    return ErrorTracking.traceApiCall('spotify', 'get-stream-url', async () => {
+      try {
       const youtubeService = ServiceFactory.getYouTubeService();
       const primaryArtist = this.getPrimaryArtist(song.artist);
       
@@ -107,7 +111,7 @@ export class SpotifyService extends BaseMusicService {
           const songs = (results[i] as PromiseFulfilledResult<Song[]>).value;
           if (songs.length > 0) {
             const bestMatch = songs[0];
-            logger.info(`YouTube search completed in ${searchTime}ms using strategy ${i + 1}. Selected: ${bestMatch.title} by ${bestMatch.artist}`);
+            logger.info(LogContext.service('spotify', 'youtube-search', `completed in ${searchTime}ms using strategy ${i + 1}. Selected: ${bestMatch.title} by ${bestMatch.artist}`));
             return bestMatch.url;
           }
         }
@@ -118,7 +122,7 @@ export class SpotifyService extends BaseMusicService {
       const fallbackSongs = await youtubeService.search(`${song.title} ${song.artist}`);
       if (fallbackSongs.length > 0) {
         const bestMatch = fallbackSongs[0];
-        logger.info(`Fallback search successful: ${bestMatch.title} by ${bestMatch.artist}`);
+        logger.info(LogContext.service('spotify', 'fallback-search', `successful: ${bestMatch.title} by ${bestMatch.artist}`));
         return bestMatch.url;
       }
       
@@ -127,15 +131,16 @@ export class SpotifyService extends BaseMusicService {
       const titleOnlySongs = await youtubeService.search(song.title);
       if (titleOnlySongs.length > 0) {
         const bestMatch = titleOnlySongs[0];
-        logger.info(`Title-only search successful: ${bestMatch.title} by ${bestMatch.artist}`);
+        logger.info(LogContext.service('spotify', 'title-only-search', `successful: ${bestMatch.title} by ${bestMatch.artist}`));
         return bestMatch.url;
       }
       
-      throw new Error(`No YouTube equivalent found for Spotify track: ${song.title} by ${song.artist}`);
-    } catch (error) {
-      logger.error(`Error getting stream URL for Spotify track ${song.title}:`, error);
-      throw error;
-    }
+        throw new Error(`No YouTube equivalent found for Spotify track: ${song.title} by ${song.artist}`);
+      } catch (error) {
+        logger.error(`Error getting stream URL for Spotify track ${song.title}:`, error);
+        throw error;
+      }
+    });
   }
 
 

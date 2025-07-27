@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { BaseMusicPlayerCommand } from './baseCommand';
 import { logger } from '../utils/logger';
+import { LogContext } from '../utils/monitoring';
 
 export class SkipCommand extends BaseMusicPlayerCommand {
 
@@ -10,11 +11,33 @@ export class SkipCommand extends BaseMusicPlayerCommand {
       .setDescription('Skip the current song');
   }
 
-  async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+  protected async executeCommand(interaction: ChatInputCommandInteraction): Promise<void> {
     const guildId = this.getGuildId(interaction);
     
-    logger.info(`Skip command executed by ${interaction.user.username} in guild ${guildId}`);
-    await interaction.deferReply();
+    logger.info(LogContext.command('skip', guildId, interaction.user.username));
+    
+    // Check if interaction is still valid before deferring
+    if (!interaction.isRepliable()) {
+      logger.warn('Skip command interaction no longer repliable', {
+        guildId
+      });
+      return;
+    }
+    
+    // Defer the reply with error handling
+    try {
+      await interaction.deferReply();
+    } catch (deferError) {
+      if (deferError && typeof deferError === 'object' && 'code' in deferError && (deferError as { code: number }).code === 10062) {
+        logger.warn('Skip command interaction already expired', {
+          guildId,
+          userId: interaction.user.id
+        });
+        return;
+      }
+      // Re-throw other errors
+      throw deferError;
+    }
     
     try {
       const nextSong = await this.musicPlayer.skip(guildId);
