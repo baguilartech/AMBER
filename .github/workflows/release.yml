@@ -26,7 +26,17 @@ jobs:
         run: npm ci
         
       - name: Build project
-        run: npm run build
+        run: |
+          if [ -n "${{ secrets.SENTRY_AUTH_TOKEN }}" ]; then
+            npm run build
+          else
+            echo "SENTRY_AUTH_TOKEN not available, building without Sentry sourcemaps"
+            tsc
+          fi
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: sentry
+          SENTRY_PROJECT: amber-discord-bot
         
       - name: Run tests
         run: npm run test:ci
@@ -74,7 +84,7 @@ jobs:
           
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: always() && hashFiles('trivy-results.sarif') != ''
         with:
           sarif_file: 'trivy-results.sarif'
           
