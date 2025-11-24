@@ -1,4 +1,4 @@
-FROM node:20.18.1-bookworm-slim
+FROM node:25.2.1-bookworm-slim
 
 # Install security updates and dependencies
 ARG CA_SERVER_URL
